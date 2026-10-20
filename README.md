@@ -1,6 +1,6 @@
 # Collatz AnglePath 3D
 
-**[▶ Open the interactive demo](collatz_anglepath3d_embedded.html)**
+**[▶ Open the interactive demo](https://tzipproth.github.io/CollatzView/collatz_anglepath3d_embedded.html)**
 
 Explore real Collatz trajectories as glowing paths in three dimensions. Shared tails form bright trunks, arithmetic rules shape the paths, and subtree colors help distinguish branches within the cloud.
 
