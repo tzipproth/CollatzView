@@ -1,0 +1,81 @@
+{
+  "format": "collatz-anglepath-views",
+  "version": 1,
+  "views": [
+    {
+      "id": "view-28fed54f-a93d-449b-9bdb-4eb69e74dcb0",
+      "name": "2026-10-20 19:57:12.948 · 9e74dcb0",
+      "createdAt": "2026-10-20T17:57:12.948Z",
+      "settings": {
+        "sampleCount": "2000",
+        "minSteps": "0",
+        "minRelative": "0",
+        "minUnique": "0",
+        "ruleMode": "v2",
+        "evenAngle": "23.7",
+        "oddAngle": "37.5",
+        "pitchAngle": "7",
+        "falloff": "0.05",
+        "opacity": "0.02",
+        "pointSize": "1.2",
+        "fogStrength": "1.05",
+        "autorotate": false,
+        "fog": true,
+        "bloom": true,
+        "sparks": false,
+        "colorMode": "subtree",
+        "subtreeN": "40,22",
+        "tintStrength": "0.7",
+        "trafficLength": "0"
+      },
+      "camera": {
+        "position": [
+          -338.9665674249694,
+          -216.3269354536165,
+          -33.18728324576514
+        ],
+        "quaternion": [
+          0.15988203011237181,
+          -0.7331976774133542,
+          0.18471805794862925,
+          0.6346165309464421
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ],
+        "fov": 48,
+        "near": 0.07764853093938344,
+        "far": 6211.882475150675,
+        "zoom": 1,
+        "focus": 10,
+        "aspect": 2.005529953917051,
+        "filmGauge": 35,
+        "filmOffset": 0
+      },
+      "orbit": {
+        "target": [
+          118.68072618838933,
+          32.46702797352413,
+          33.12430298563137
+        ],
+        "minDistance": 22.55893058146588,
+        "maxDistance": 3947.8128517565287,
+        "autoRotateSpeed": 0.42,
+        "dampingFactor": 0.055,
+        "enableDamping": true,
+        "zoomToCursor": true
+      },
+      "renderer": {
+        "exposure": 1.25,
+        "toneMapping": 4,
+        "pixelRatio": 1.6
+      },
+      "viewport": {
+        "width": 2176,
+        "height": 1085
+      }
+    }
+  ]
+}

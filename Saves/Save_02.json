@@ -1,0 +1,81 @@
+{
+  "format": "collatz-anglepath-views",
+  "version": 1,
+  "views": [
+    {
+      "id": "view-0d7bf5aa-ffb4-4f7b-b636-96ca6191ccb4",
+      "name": "2026-10-20 19:45:39.858 · 6191ccb4",
+      "createdAt": "2026-10-20T17:45:39.858Z",
+      "settings": {
+        "sampleCount": "2000",
+        "minSteps": "0",
+        "minRelative": "0",
+        "minUnique": "0",
+        "ruleMode": "drift",
+        "evenAngle": "23.7",
+        "oddAngle": "37.5",
+        "pitchAngle": "7",
+        "falloff": "0.05",
+        "opacity": "0.015",
+        "pointSize": "1.2",
+        "fogStrength": "1.05",
+        "autorotate": false,
+        "fog": true,
+        "bloom": true,
+        "sparks": false,
+        "colorMode": "subtree",
+        "subtreeN": "40,22",
+        "tintStrength": "0.7",
+        "trafficLength": "0"
+      },
+      "camera": {
+        "position": [
+          -282.2702620088912,
+          -407.9080652162952,
+          454.94830147237315
+        ],
+        "quaternion": [
+          0.3041307058511538,
+          -0.37971458027494776,
+          0.13375620134393176,
+          0.8633832462395485
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ],
+        "fov": 48,
+        "near": 0.07764853093938344,
+        "far": 6211.882475150675,
+        "zoom": 1,
+        "focus": 10,
+        "aspect": 2.005529953917051,
+        "filmGauge": 35,
+        "filmOffset": 0
+      },
+      "orbit": {
+        "target": [
+          143.42455501354638,
+          56.64231693348421,
+          64.59241177038314
+        ],
+        "minDistance": 22.55893058146588,
+        "maxDistance": 3947.8128517565287,
+        "autoRotateSpeed": 0.42,
+        "dampingFactor": 0.055,
+        "enableDamping": true,
+        "zoomToCursor": true
+      },
+      "renderer": {
+        "exposure": 1.25,
+        "toneMapping": 4,
+        "pixelRatio": 1.6
+      },
+      "viewport": {
+        "width": 2176,
+        "height": 1085
+      }
+    }
+  ]
+}

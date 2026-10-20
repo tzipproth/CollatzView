@@ -1,0 +1,1894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Collatz AnglePath 3D</title>
+
+<script>
+window.addEventListener("error", function (e) {
+  const s = document.getElementById("status");
+  if (s && !window.__collatzStarted) {
+    s.textContent = "Three.js could not be loaded. The Collatz sample is embedded, but this HTML needs Internet access to load Three.js r186.";
+    s.classList.add("error");
+  }
+}, true);
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+  }
+}
+</script>
+
+<style>
+:root {
+  color-scheme: dark;
+  --panel: rgba(7,10,17,.79);
+  --border: rgba(255,255,255,.13);
+  --text: #f3f6fb;
+  --muted: #aeb8c9;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin:0; width:100%; height:100%; overflow:hidden;
+  background:#020307;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+}
+#viewport { position:fixed; inset:0; }
+canvas { display:block; width:100%; height:100%; }
+
+#title {
+  position:fixed; left:17px; top:14px; z-index:5;
+  pointer-events:none; text-shadow:0 2px 14px #000;
+}
+#title h1 { margin:0; font-size:19px; font-weight:670; letter-spacing:.015em; }
+#title .sub { margin-top:4px; color:var(--muted); font-size:12px; }
+
+#hud {
+  position:fixed; left:17px; top:67px; z-index:5; pointer-events:none;
+  padding:7px 9px; border:1px solid rgba(255,255,255,.08);
+  border-radius:8px; background:rgba(2,4,9,.5);
+  color:#d8e0ee; font-size:11px; line-height:1.55;
+  backdrop-filter:blur(6px);
+}
+#hud b { color:white; font-weight:600; }
+
+#panel {
+  position:fixed; right:16px; top:16px; z-index:8;
+  width:min(348px,calc(100vw - 32px));
+  max-height:calc(100vh - 32px); overflow-y:auto;
+  padding:12px 13px 13px;
+  border:1px solid var(--border); border-radius:12px;
+  background:var(--panel); backdrop-filter:blur(10px);
+  box-shadow:0 9px 32px rgba(0,0,0,.28);
+}
+.row {
+  display:grid; grid-template-columns:126px 1fr; gap:10px;
+  align-items:center; margin:8px 0;
+}
+.row label { color:var(--muted); font-size:12px; min-width:0; }
+select, button, input[type="range"] { width:100%; }
+select, button {
+  border:1px solid var(--border); background:#141a25; color:var(--text);
+  border-radius:7px; padding:7px 8px; font:inherit; font-size:12px;
+}
+
+input[type="number"] {
+  width:100%; border:1px solid var(--border); background:#141a25; color:var(--text);
+  border-radius:7px; padding:7px 8px; font:inherit; font-size:12px;
+}
+.dataset-info {
+  margin:7px 0 10px; padding:7px 8px; border:1px solid rgba(255,255,255,.08);
+  border-radius:7px; background:rgba(4,7,12,.42); color:var(--muted);
+  font-size:10.5px; line-height:1.45;
+}
+.dataset-info strong { color:var(--text); font-weight:600; }
+.file-button { width:100%; }
+button { cursor:pointer; }
+button:hover { background:#1d2533; }
+input[type="range"] { accent-color:#a9dcff; }
+
+.checks {
+  display:flex; flex-wrap:wrap; gap:12px;
+  margin-top:10px;
+}
+.checks label {
+  color:var(--muted); font-size:12px;
+  display:flex; align-items:center; gap:5px;
+}
+.buttons { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.formula {
+  margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
+  color:var(--muted); font-size:11px; line-height:1.45;
+}
+code { color:#e2f2ff; }
+#status {
+  position:fixed; z-index:9; left:17px; bottom:14px;
+  max-width:min(820px,calc(100vw - 34px));
+  padding:7px 9px; border-radius:8px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(2,4,9,.62); backdrop-filter:blur(6px);
+  color:#c9d3e2; font-size:12px; line-height:1.45;
+}
+#status.error { color:#ffbaba; border-color:rgba(255,120,120,.35); }
+@media (max-width:720px) {
+  #panel { left:10px; right:10px; top:auto; bottom:50px; width:auto; max-height:50vh; overflow:auto; }
+  #title { left:11px; top:9px; }
+  #hud { left:11px; top:60px; }
+  #status { left:10px; bottom:7px; font-size:11px; }
+}
+
+#savedViewPanel {
+  position:fixed; left:17px; top:163px; z-index:7; width:174px;
+  padding:8px; border:1px solid rgba(255,255,255,.10); border-radius:8px;
+  background:rgba(2,4,9,.78); color:#d8e0ee; font-size:11px;
+}
+#savedViewPanel .view-heading { margin-bottom:6px; font-weight:600; }
+#savedViewPanel select { min-width:0; padding:5px; font-size:11px; text-overflow:ellipsis; }
+#savedViewPanel button { padding:5px 4px; font-size:11px; }
+#savedViewPanel .view-actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin:6px 0; }
+#savedViewPanel button:disabled, #savedViewPanel select:disabled { opacity:.45; cursor:default; }
+#viewMessage { margin-top:6px; color:#aeb8c9; font-size:10px; line-height:1.35; overflow-wrap:anywhere; }
+#viewMessage.error { color:#ffbaba; }
+#saveHelp { margin-top:6px; font-size:10px; color:#aeb8c9; line-height:1.4; }
+#saveHelp summary { cursor:pointer; }
+@media(max-width:720px) { #savedViewPanel { left:11px; top:154px; width:160px; } }
+
+</style>
+</head>
+<body>
+<div id="viewport"></div>
+
+<div id="title">
+  <h1>Collatz AnglePath 3D</h1>
+  <div class="sub">real Collatz sequences · common tails overlap · additive glow</div>
+</div>
+
+<div id="hud">
+  <div><b id="sequenceCount">—</b> sequences</div>
+  <div><b id="segmentCount">—</b> line segments</div>
+  <div>max steps: <b id="maxSteps">—</b></div>
+  <div><b id="fps">—</b> FPS</div>
+</div>
+
+<div id="savedViewPanel" aria-label="Saved views">
+  <div class="view-heading">Saved views</div>
+  <select id="savedViews" aria-label="Choose a saved view"><option value="">No saved views</option></select>
+  <div class="view-actions"><button id="loadView" type="button" disabled>Load</button><button id="saveView" type="button" disabled>Save</button></div>
+  <button id="loadSavedViews" type="button">Load saved Views…</button>
+  <input id="viewsFile" type="file" accept=".json,application/json" multiple hidden>
+  <button id="chooseSavesFolder" type="button" style="margin-top:6px">Saves folder…</button>
+  <input id="viewsFolder" type="file" webkitdirectory multiple hidden>
+  <div id="saveLocation" style="margin-top:6px;font-size:10px;color:#aeb8c9">Save to: browser dialog/settings</div>
+  <details id="saveHelp"><summary>Firefox save location</summary>In Firefox: Settings → General → Downloads → Always ask you where to save files. Then choose your Saves folder. A website cannot enable this setting itself.</details>
+  <div id="viewMessage" role="status" aria-live="polite">Choose Saves folder or Load saved Views…</div>
+</div>
+
+<div id="panel">
+  <div class="row">
+    <label for="sourceMode">Data source</label>
+    <select id="sourceMode">
+      <option value="dataset" id="datasetModeOption" selected>jointHist.csv</option>
+      <option value="random">Embedded random uint64</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label>jointHist.csv</label>
+    <button id="loadDataset" class="file-button" type="button">Load CSV…</button>
+    <input id="datasetFile" type="file" accept=".csv,text/csv" hidden>
+  </div>
+
+  <div class="dataset-info" id="datasetInfo">
+    Development source: <strong>jointHist.csv</strong> (separate file). The viewer will
+    try to load a file with that name from the same location. If the browser blocks
+    local-file access, use <b>Load CSV…</b>. Loading a CSV resets <b>N = 1</b>.
+    Required columns:
+    <code>steps, oddsteps, count, min_start, max_growth_start</code>.
+  </div>
+
+  <div class="row" id="tailNRow">
+    <label for="tailN">Highest oddsteps / length<br><span style="font-size:10px">N (0 = all)</span></label>
+    <input id="tailN" type="number" min="0" max="999" step="1" value="1">
+  </div>
+
+  <div class="row" id="startPickRow">
+    <label for="startPick">Start value per row</label>
+    <select id="startPick">
+      <option value="min" selected>min_start</option>
+      <option value="max">max_growth_start</option>
+      <option value="both">both</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label for="sampleCount">Sequences</label>
+    <select id="sampleCount">
+      <option value="500">500</option>
+      <option value="1000">1,000</option>
+      <option value="2000" selected>2,000</option>
+      <option value="5000">5,000 (heavy)</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label for="minSteps">Min total steps <span id="minStepsVal">0</span></label>
+    <input id="minSteps" type="range" min="0" max="1000" step="25" value="0">
+  </div>
+
+  <div class="row">
+    <label for="minRelative">Min relative steps <span id="minRelativeVal">0.00</span></label>
+    <input id="minRelative" type="range" min="0" max="17" step="0.25" value="0">
+  </div>
+
+  <div class="row">
+    <label for="minUnique">Min unique branch <span id="minUniqueVal">0</span></label>
+    <input id="minUnique" type="range" min="0" max="800" step="10" value="0">
+  </div>
+
+  <div class="row">
+    <label for="ruleMode">3D rule</label>
+    <select id="ruleMode">
+      <option value="v2" selected>Parity + v₂ pitch</option>
+      <option value="drift">Syracuse drift</option>
+      <option value="word">Syracuse word (k₁,k₂)</option>
+      <option value="mod8">2-adic mod-8 classes</option>
+      <option value="inv3">3-adic inverse branching</option>
+      <option value="hybrid23">2×3-adic hybrid</option>
+      <option value="xyz">Cyclic X/Y/Z</option>
+      <option value="flat">Flat Wolfram-like</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label for="colorMode">Color by</label>
+    <select id="colorMode">
+      <option value="magnitude" selected>Magnitude (default)</option>
+      <option value="subtree">Subtree at fork n[,m]</option>
+      <option value="traffic">Traffic (dim rare edges)</option>
+      <option value="deep">Deep shared branches</option>
+      <option value="kclass">Syracuse k class</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label for="subtreeN">Fork n[,m]<br><span style="font-size:10px">n: gold/cyan · m: red</span></label>
+    <input id="subtreeN" type="text" inputmode="numeric" pattern="[0-9, ]*" value="40" placeholder="40 or 40,184" spellcheck="false" disabled>
+  </div>
+
+  <div class="row">
+    <label for="tintStrength">Tint strength <span id="tintVal">0.70</span></label>
+    <input id="tintStrength" type="range" min="0" max="1" step="0.05" value="0.7">
+  </div>
+
+  <div class="row">
+    <label for="evenAngle">Even turn <span id="evenVal">23.7°</span></label>
+    <input id="evenAngle" type="range" min="5" max="60" step="0.1" value="23.7">
+  </div>
+
+  <div class="row">
+    <label for="oddAngle">Odd turn <span id="oddVal">37.5°</span></label>
+    <input id="oddAngle" type="range" min="5" max="75" step="0.1" value="37.5">
+  </div>
+
+  <div class="row">
+    <label for="pitchAngle">3D strength <span id="pitchVal">7.0°</span></label>
+    <input id="pitchAngle" type="range" min="0" max="25" step="0.5" value="7">
+  </div>
+
+  <div class="row">
+    <label for="falloff">Length falloff <span id="falloffVal">0.050</span></label>
+    <input id="falloff" type="range" min="0" max="0.12" step="0.005" value="0.05">
+  </div>
+
+  <div class="row">
+    <label for="trafficLength">Traffic → length <span id="trafficLengthVal">0.00</span></label>
+    <input id="trafficLength" type="range" min="0" max="0.6" step="0.02" value="0">
+  </div>
+
+  <div class="row">
+    <label for="opacity">Line glow <span id="opacityVal">0.055</span></label>
+    <input id="opacity" type="range" min="0.01" max="0.16" step="0.005" value="0.055">
+  </div>
+
+  <div class="row">
+    <label for="pointSize">Spark size <span id="pointVal">1.2</span></label>
+    <input id="pointSize" type="range" min="0.0" max="3.5" step="0.1" value="1.2">
+  </div>
+
+  <div class="row">
+    <label for="fogStrength">Fog strength <span id="fogStrengthVal">1.00×</span></label>
+    <input id="fogStrength" type="range" min="0.15" max="2.50" step="0.05" value="1.00">
+  </div>
+
+  <div class="checks">
+    <label><input id="autorotate" type="checkbox" checked> Auto rotate</label>
+    <label><input id="fog" type="checkbox" checked> Fog</label>
+    <label><input id="bloom" type="checkbox"> Bloom</label>
+    <label><input id="sparks" type="checkbox"> Sparks</label>
+  </div>
+
+  <div class="buttons">
+    <button id="reset">Fit camera</button>
+    <button id="shot">Save PNG</button>
+  </div>
+
+  <div class="formula" id="formula">
+    The <b>3D strength</b> slider scales the arithmetic out-of-plane rule.<br><br>Default 3D rule:<br>
+    <code>even → yaw +23.7°</code><br>
+    <code>odd → yaw −37.5°</code><br>
+    <code>pitch ∝ v₂ − 2</code><br><br>
+    Relative steps = <code>total steps / log₂(start)</code>.<br>
+    “Unique branch” means the number of initial forward Collatz edges used by no
+    other sequence in the selected base sample before the first merge.<br><br>
+    In <b>jointHist.csv</b> mode, every selected histogram row contributes
+    representative real Collatz sequences chosen by <b>Start value per row</b>:
+    <code>min_start</code> (smallest start of the class),
+    <code>max_growth_start</code> (start with the highest intermediate value of the class),
+    or both (a start that is both is drawn once).
+    “Highest oddsteps / length = N” groups rows by <code>steps</code> and retains
+    the N rows with the largest <code>oddsteps</code> in each group.
+  </div>
+</div>
+
+<div id="status">Loading Three.js r186 and preparing the Collatz viewer…</div>
+
+<script>
+window.COLLATZ_STARTS = ["0xd240fb005532ad09","0xb53d0e688dcf980f","0xa047d9d7a881e5a1","0x359627c1b7a9a6a2","0x205f8fa5eb478548","0x1b0446c1c92ae7b7","0x762b093ac51cc00a","0xa7e7338a1792e1d5","0x30460818d4108b67","0xb8e2b8d0b7ed72fc","0xfc1595d3bbfc817f","0x4adab9e4445f6cac","0x6fa7acabff6b278c","0x4b7444f9340c7bf6","0xee2aebeabcdbd9ec","0x6e09b7fe622ed389","0xbb49372632a0025c","0x60d96892a201df65","0xc17754d0b9793697","0xeac95be14e2721ee","0xd22f592651a20716","0xebda2448be8e0093","0xe047857088de1516","0x91eda69e2c5915e4","0x86bcce3f6988a4bc","0x989455a9165cd65a","0xf52c52afd713f924","0x703de02f3754a263","0x22a215623f73bd86","0xa8060eb0d65cd2fa","0x76188f5e5e1242ce","0x8dad3a64edde8e74","0xb528cb57ac27bfd4","0x053f5eb9015f3833","0x4fb5630d1eee2dd3","0xb1ec340ba2abe155","0x7ff7247aaa070261","0x403c3c98b59af3ce","0x19597d4a77216ef7","0xe8da596b80a7fc7c","0xa47d717fe20c0717","0x0b14fdaf50bf43ee","0xda93f8ca3ca5c393","0x83982219be975c05","0xae3d224a2cebb2bf","0x04b25e6aa30b0bff","0x2b173f476620415b","0x496e339a6dea6587","0xb902a04f8987df62","0x165e3db7e3f58ac0","0xfff5b6b5128c935d","0xed74111a5a0f0c63","0x0788a59fce6da3c4","0x3b2c1a3958e79c23","0x1c8659ef36fc2b0b","0x5fcf31a08095c2b9","0x8f4a5ff644180450","0x62fff072640de341","0xe118a8c7ae4bd85a","0x13b56da82afcdd2a","0x33dee95d1e2f641f","0xd27240300554e1fa","0x6f58b4be9d2334c0","0x1c3d767370fdc137","0x902757dbc5cd24f0","0x99e360983bc29fe9","0x3c2c1577fd5743d4","0x42d88c5f83d48049","0xb66526fc736540a6","0xbc3c83737ce8b215","0xf92c6d2b96c8783d","0x219aa40c77bc4d44","0xcd9a4dcdb0268da9","0x9ea5daed77502b16","0x0905fc5b50811faf","0x0908192b6d649bd6","0x264df41e0cfbc2e7","0xdd1cddcd11405f60","0x8e3e25083edfb2d4","0x54fd88b24d49d4e2","0x14ad4302943fac01","0xfedab364a88d6855","0xba9968bd2e1214c1","0x9a4b3e2b15d176a2","0xa5cc1bb22d7c6c6b","0x68a99999d18a1f5a","0x87a871a1832e031e","0xb919302dd12ee6bc","0xb0d3afe63a38d48a","0xd0459648bfc32b73","0xa15f9dfb05e99dbe","0x83cb17d6bdc1cc34","0x7441a93b9f2a6943","0x482616c23b6afb6f","0xb502400aa3eaa985","0xea1af00c088229e6","0xebfc48af1b84458d","0x0b063e35b4b6eb23","0xddd20b361b4d03b3","0x38610d9260de4428","0xe9e0dcbd128b84b9","0xb74666bae8637bdb","0x8a7e4ad0a21231ec","0x9618f53a6a8dda80","0x811fb2fa60aa37f4","0x3de512a4f7d850ba","0x654f64abec7d46ff","0xcae273f97c3daaf8","0x6e9678810013aad8","0xdf944d09956430f2","0x0d351720102ca0ec","0x6f122fffb9fcc732","0xcbd0beffc1e0ac75","0xe2f20314f8aa5d0a","0x157cc57980afd67f","0xa4500f9f2112330d","0xf7c51afb80338fb7","0x3ddce01b68f59642","0x4c7faa205b514bf2","0x394f6f2d2546dfeb","0x15b336abb180cced","0xe1d9953d5a626301","0x41a66da58b26edba","0x9eab0beb4638e700","0xa9fd65fe87a3222c","0xaf2a9151c765393f","0xad7f31b728472816","0xc1bb2eaf3e20da47","0x27ee09ee2896b98f","0x89b72fbc572e8163","0x8c9112041403de4f","0xd1c8ff0eae9cdc14","0x6439a67fc166ea27","0x04298fcb03ca50a4","0x3e1c963f9d860aa9","0xd54ab975711eb701","0x9d6981723ac4bc53","0xb6b8b13a3b2ab1d6","0xe6b4213ee6d5d136","0x22ef5904de22dc7c","0xa49281e7b52ea8e9","0x951936abc04b90d9","0x4ca0b8f063c1eaa6","0x27d85a84d5d8f8ce","0x7a834a4d10a94536","0x928820a4292527a1","0x7363e506b210d47c","0x4b8fa934c3e9cf1f","0xfe6dd6a3838cc652","0x5af953d4b4a6fba8","0x376a6eb9f0859098","0x7cb1e23c72ae6723","0xca3bdabb340f9721","0xcf5a1d7f6a37511e","0x6e83973e1cfa2073","0x01bb0dfb567e87d8","0x702a91f7619842b4","0x267d4ccd580d28e2","0x3970c02fa8faeab5","0xadd4bc206c835cfc","0x85b873bf5abd9a00","0x93b9d469be6d0c5f","0x5660081a189b9649","0xf6ff50c050e0fde2","0xd5a8746f5576cdb1","0xdc8db860c0642bf2","0xd42dd843556dcd7e","0x3406b7346e5dbae5","0xe0d23754ba67271c","0xc2d7bdc263cb646b","0x77dc76c1a4915323","0x87d896f11352249d","0x4f3f59818239f6de","0x6b97eb94f595dafa","0x43d046134fa13ee0","0x23923fddc7ce6518","0x12c10132c4b74a86","0xd78861d5f10345fc","0xeb4932768babe1f0","0x5f8e2a0435caf9c2","0x4798577c74671e55","0x593587432ea565f9","0x01fc2939f213d5cd","0xebcb66da87b8a1e8","0x2786a8137cdaf96a","0x05cedf58cf1a32f4","0xae9565aa9908a4cf","0x9430d38a3ce2544c","0x1251309ea5b08a20","0x70e2a66777e33c46","0xfce6a2969e3c58f1","0x838625c48521af9b","0x4e9bc152e3d2a0cd","0xf37df3c3a2c023e7","0x3e02396262e65834","0x84e72e49093c385d","0xb90f6d3a89bdbd78","0x475af6d6c209e282","0xccd85878a6c16532","0xefcf972eb773b7d2","0xd0156b76e0a47330","0xd585f21706582689","0x04e6b7395e4ffa48","0xe156cfbc7b3f2cf5","0x687adcb5ef95c3b8","0xa9c4ee11a43a1366","0x79c5a1effca23aa7","0xcc2b0bd62107b86c","0x7b109603567714f8","0x8e9a8b2126501c8d","0x967067844bc3a983","0xae6b01e17bd663af","0x8adc4cc0fff10447","0xf2f2d94f8df59d34","0xde4b40d49fa320d7","0x851e26f9203efaac","0xdd0fdadb08f5321e","0xecef9d04efe6f155","0xeccdff2e1a4e1853","0xd9a431bd43d1c93f","0x2f3437e845405d90","0xe9909d7af1006136","0xde3edc32da9894ae","0x0d9a89c4daac2748","0x1acb433d60219bce","0x18cb82af60db6151","0x92fe2a0e8a2a8076","0xea1f0d79c64c8420","0x5be1b67eff0186a0","0xd595a8877f6ea355","0x4d67fca3c5108d2d","0x7f2d4e982a9c5ae4","0x2cd6aeae130c61c6","0x1ce124e954f8872a","0x243df217314fca11","0x4b1d42b360eed4f3","0x6408266d0352639f","0xb6a1dd0d4cd73e95","0x8fb56f7545cc55b6","0x1ad540920c2da8fc","0xb2aea491aa8a3d37","0xb7cfee38da7d9a66","0x547fbccb1ab2579a","0x64011f19297f0dd1","0x0fff3bfbf6faf52c","0x4bf89c897c863e90","0xdc6d3e5ab6297902","0xba5b3daad9b2c114","0x61f9b432dd17f0a2","0x4414ad4eabb10149","0x996150971716bb9d","0x266663e78e7e5eca","0x09c5eb989742d47a","0x4998280e0ba9e6fc","0xf49b6c35bee12ea7","0x64305837e9a79959","0xfa6be1a077371eec","0x80eebdbb9d7dcead","0xb064989fd8f5edf1","0x9cf0b740540dec62","0x23259bb726e9cfe7","0x3d408c5e0e3bbf7f","0xe302c58ec9d74099","0x143b103565eeb128","0x1c71a96bc76c7590","0x9d9093602deb1cc6","0x35ffcae4fb248e4b","0xb167ed8c0bc792b1","0x94680a7db96e296a","0xc6a0c0b4aaf01931","0x02cca92742fbec64","0x44d210776fe2acf0","0xc2cd7c0691ea959f","0xada9f28d1ddda2cd","0x84363e1619c0fccd","0xbf47119ed5cd25d7","0xc380838983a66bbc","0xd67e9afaf7156d95","0x008b5e81cdf1325b","0xd2cc55af845ba4ca","0xc414cac5265e2e6c","0x1bd252e1a2c0f1bb","0xee59ea634877e08b","0x55dd328424d12046","0xc1e369ae5aec2ea6","0xdf9629849e6c57a8","0xd090bfd3aca37bad","0x9a6a836c86cd077c","0x47c96abf2cd0a8a9","0xf29643669bded2cf","0xc37af3e74c862904","0x63c690dec80c19cf","0xb564fad638c2562b","0xda096dbcdc91ad61","0xb3bf5eec0d7a1813","0x5395d6fd8b0486ce","0x48e5d7b34439e495","0x831e2eae82313c48","0x9af0093515ca6d78","0x7a09171cd0c80c34","0x104c4c66ebafdc24","0x342023f11171f9f7","0xed20a501feece819","0x84ea5a17ab727feb","0xf1b90fb7dbefb01e","0xba3021205302e637","0xb1e0b9530a4008e8","0x0f18f645ae0bc95b","0x82e33fe97e3d1550","0xdba6c2fd82bcf811","0x97f020c0ac8baaa2","0x8beb031aeeae1c80","0xc43b2bbe6c61a6d7","0xab611308e297b962","0x093965bcf7f7ebed","0x866a57cdd1f5cf59","0xb6372809331d159e","0xc3a5141b79ccc99a","0xcdc8820b3d44baeb","0x17d867881e7ea74f","0x6425b22e757e8085","0xdf04d42d9dca6cda","0x7981f964d34d5cff","0xabb908369a198f28","0x64ed425b0643c8a9","0xf658c9c0f45fe037","0x70875220a3793699","0x1bc43bb4fd4ec4d7","0xd5276558504f47e6","0x5863ba1f6b5b8c3a","0xb7b392fa9b9aad31","0x1d5a4da939c76c27","0x0887553b56f6fb7f","0x3eb730bd5629e5c8","0x90c51ff7d53a7ad2","0xbc03e7e7d6f89fdb","0x1704f9cdb166d42c","0xc0226dbe51661374","0x2db19d1904760a60","0x7ee0a5a04078b7da","0x094bbd173d557f81","0x6fd0d8b1a7b80008","0x30798ad1456e19f8","0x0b8661a676186d23","0x7cb8ca5fb04940ef","0x4df97b4f955da67f","0x55edeb1930b3fc8e","0x76fe778d181135ed","0x38a985b6b12d0b50","0xfd105d1989f3b4ca","0x9423d3c282bbe74f","0xcafd0cb0a3419c9b","0x49ca42259791dd4c","0x7596c02d90ba9075","0x1201ace07f83bc24","0x6144d4e5a966f52d","0x6df8356787d588ca","0xf60318f22714a4b6","0x9ac4253e1b1311c8","0xc800f8c932701702","0xf6753ebb44177e83","0xd29b1077effe3cd3","0x9804b8d4a3291022","0x6e5d5820586a5bfb","0x75e3a1a0a707e539","0x4709de329813afca","0x7b71fbcd886dd515","0xb2a0729cb7a3b069","0x754c868bb8ad482a","0x55929fa182dc84aa","0xc5812351dae7a183","0x84d0fb7bfd37672f","0x366958251543ab83","0x655fe387ac68a830","0xd37f26aa64ab85e0","0xf0ce5197834b4662","0x49bb96f1b062c976","0xe775c39642629ed3","0x241463e771f7777d","0xf74ecbe7f6f6df8d","0xf357468bea41d4b0","0x027968a812c95b10","0x575e06cf93e67a2e","0x1be717ba681870e6","0x56328965d46c7e53","0xf75e9d7c43246b61","0x11b13518a1a64a18","0x18be9d77873f8ddc","0xfa7b4fa26e0bbb1f","0xd0ac0c469e8b4c28","0x23bdd767d77e8435","0x5a9a47cfd90b16a1","0x4f482ab5204a08ac","0x1ecc5eaa9ae0e004","0x1c4d1273368ba4e6","0xcf436a955659c19f","0x1805a3a643001d5c","0xeede470017cdaf19","0xbf262b41e1e8ac00","0x5e1bfe484940bbc4","0xa75b58d1222d3615","0xd9a0bfdee47c7985","0xdb90b737f9fff6e4","0x3f36c7a5376575c1","0x57b3dcf3202a39e6","0xd2ca51d61f359d47","0xa92bd46c65a07d8b","0x7ea97c51adc6358a","0x45a6d7e1bbcaa490","0x8e00d9e244a1f04a","0x8b06e08371ced758","0xa3ec7175fe5ed0bb","0xe69624cb408e88c1","0x28b36d1ef4f7bc9f","0x4fc0f3c36c2783d2","0x7a4eab5e80b69ec3","0x368d3f32fd22651f","0xa164bd05b33f8c4c","0x5c5962da4c2f3767","0x58d6fc23b7c172bc","0xba465b143d3ae2f7","0x676a58b625f9f88b","0x83fe28ee76ff64d1","0x64d722bad96c21db","0x6a6b442118f5b08d","0xff8b6c0728bf8b52","0x548cf900f16b9a30","0x75b785298abeddb3","0x466fc409b4044cbf","0xbbe6d0b3b9b7768c","0x3dab9f5e5360754a","0xa895ee9903401c54","0x3464060cf5f84424","0x8803a4a36bd90ba4","0x8d00e766e355dc14","0x92b2692b17c3407c","0x094fc3479f4d2757","0x4bb96b145875b801","0x001ee600477f2a82","0xb175d60631b0b253","0xfad6722cf6ed56f0","0x20adc7b99b2e1c6f","0x5149b5a7bf67af58","0xb0d6d75ddeb0a315","0x486898ae249915c8","0x6d8793477ed35722","0xb2da0d9ee6974e63","0x49083c2f7f769a57","0x1f556277f9c60bea","0x5a561a613448aebf","0x9ff0282b4ea73265","0x95a6d10cdf3f5a2f","0x590aa46a14ad02b6","0xf65774a3cb4d587d","0x81cdd600190d98ea","0xbc2fc2262eff688a","0xd1b8aa3f448124d9","0x2b472650808340e4","0x47ba34740f598a81","0x7e69902024663c4a","0x05da599fc1ed7685","0xeefe13f18845675f","0xdd06fc3303dcc21a","0xe0c9ef0bc0e93da6","0x0e3383872a992536","0x2e7d91d125f22867","0x6274d4256c5ca88f","0x4429ab273e73c417","0xaddda67a6a047c16","0xbae7324ae1b1d7b8","0x0467afcd02b1a005","0x1d990ab4d9dc2def","0x0a77f9e196241b2e","0xfd3474758985112b","0x0b57d0dd44a8a904","0x6e8ea37470bc26c8","0x11321c98be4625cf","0xf505e1a2ae61df4e","0xa2cef80d1650caa1","0x31f53ef113b5bb47","0x1cf820b37092a685","0x71aee6a955a3256e","0xdee5b3c064f5fafe","0x85c74963ee078b07","0xeda0d505875a5209","0xe006951f782095f6","0xafe84f2c716fae1e","0x1195b8f3659d4122","0x95659237be67dfad","0x84436173f1d88340","0x440bc91183b3dc68","0x89da4c9904c66900","0x4d2d871af82b866c","0xe3e2523c3dbd705c","0x177c1bfe05ea3e07","0xd6a9d81ab506e363","0x6d593dafcbded8df","0x0fe108b6a075abc2","0x76ca16a0903b3e20","0x565f774049983d47","0x153b5402b94e50eb","0x6add0d5ccaaf1455","0xfdc2521a21cb7e59","0x0abe0650086984ec","0x09a387a972eac201","0x3b17fa34c213c363","0x6aa710d53a26c156","0x542a160560399aaf","0xe76d04d240d90de3","0xbb9d70f3f8c181bc","0x9a9f40ca983ae78e","0xa6b4fc1b9cbe98b6","0xb739f2156d62cca9","0xb8dcb2840da4549c","0x952ff04c4017ef4b","0x9f1a26332304778a","0x596dbe3e04ea3e35","0xab92580f1e7b608f","0xbd9891f3b891883d","0xb502b051a660e592","0x8ffa53c9377f7313","0x534aea8018b0e51d","0xd894bd6a331d3a0a","0xa0583220317c8a89","0x9101f141f2b8215e","0xd41d96f3d0de96c9","0x2f38fbfd53f536f9","0x7505354b6656c5b1","0xda5911674cc161cf","0xc22880f4d2c47fa3","0x2c8d178544c6e4ee","0x0d32e409481424fa","0x4a89eb9c83d0626a","0x9b5e9a6a037bfcc7","0xb3c78d35c451a946","0x00291c4eb47501a0","0x305d0bad43fd2ea0","0x30e203bf17a02c20","0x9842643de1ba6dcd","0x9556d2c600ee60e8","0x02455503712501a9","0x56be1265e32f16fe","0xcb2ea782eb85b147","0x1f78e0c781a3d702","0x018685a6fb936d94","0x583849bc3a5edaca","0xbab3bcd3a3d34f24","0x83348569b0981fbf","0xa1854674dd579504","0x1c05e1eec1f38ce9","0x16bbf6c049bb5136","0x24977cf2c192c34d","0x5b8062e3e03843dd","0x09690c0a2add9480","0x2d60d3bb4ae92a80","0x6b4b0fd36b26a75e","0x5957de748e3d1f78","0xc43272efb4ca79e8","0x65b67647e2db93ab","0x63c5d5047fb0861d","0xab12a695d405d30f","0x897c89a1ac706b94","0xaf6f16d5fe0b25ce","0x38ce3faa8cba0765","0x069e9bcca8008963","0x7c80fdf20dff2767","0x5232e3ba2f14a0ed","0xbb918cd44b94c2c7","0xac901521580e436d","0x6d6f670d26551f31","0xd8a7d21dc2d3d526","0xd1006b790085acd7","0x0862203a7c45aeb4","0xf5a7fbe12b375039","0xd4dbc5d8f8379c8a","0x2a2ada827fa004b2","0x73a9f7a87cdeebf7","0x36cc8faba428a531","0x812e0c399a8fd4ec","0x0377dc9df3ccc65e","0xbeb569e9a7845e63","0x672060fb1a4c8130","0xd37f15c67e3b7600","0x965251c6605e7485","0x7d66ba9cf73e3801","0x00d34e8d1a896b0a","0x205a9a0e69ba8a5f","0xfbf4d6394fdb2360","0xd222b24731382afb","0x6eeff8b6cb957189","0x01d1434cac1a410a","0x5d0442000ae97e9e","0x5a28702ca2cef5ed","0x496c74317c9922e0","0x7285e49ead5e6c29","0xec0b34c602bbe01c","0x2c7daf4039648602","0xd3baee33629647c7","0x03b0dcfc82300393","0x76956e27cfe6b19c","0x1e51fc84129079dd","0xd4bff14934b30bd2","0x62edc36bd7748f6f","0xa18309609cc4dfcc","0xe1bdac3cd67712c0","0x38921fed2e1e503e","0x0ed1da09f7a5e530","0x8caaa25a581c99cf","0x2f2d7a8b834ebcb7","0x4be1cc551ebcd56b","0x115a9a0a480b637f","0xe735c1444292faa5","0xf972a7680a74c5bc","0xf57040b522feb41d","0xbddb4ed3ad91054c","0xbf2a569ab8b4b859","0xa735cb80b6328d4a","0xabcced74a59d434e","0x948a33e9e02b9f9e","0xe2c8b28b10cbcac2","0x6420da7628df2eea","0x5e937ff860446414","0xddd926e6e7079e1f","0xcc417db79ed89152","0x54343bb76d34dc78","0x29bae7dea8a5c23e","0x8965c13eeb5eff3c","0xb28f2b01fd2cad13","0x5f658e6f0112e3c8","0xf4143457112b7e0f","0x14d0064d0ebd8f36","0x13674de419b48d70","0xa6b87d3965f91bb8","0x53c2d72a421e5029","0x6def451dcb03f075","0xaa0d41db2d35853a","0x69e93a3c84f05fc3","0xc0c84668a3968831","0x6865716cb9c07c31","0xf8f03dcbd17b2d01","0x1862284a2ab8a39c","0x465ca60a3e580516","0x7765272912f06c0f","0x01e0670f967aad5f","0xf378e2805c12e4af","0x49ea122a4470f898","0xc7a374ca1a0fc697","0x24da055770138843","0x2a574cfedde93cf1","0xc2c6a35983d77fea","0x15850e4bd22f1002","0x6e3dc34693b47266","0x66491432d3cb0d74","0x937835afca9fd5d6","0x961a3aa1aba77895","0xa19608fd582b84ea","0x01baabd9f3c96a0a","0xd195628d881d880f","0x07761434e9025836","0xad8e6eb76d997d4d","0x36bcd8ed52f8260f","0x309a15c7d026408a","0x872377b816cb750b","0x8a71b5905abf9bce","0x70ac54a6789bf0a3","0xd5ff3b07db79a8e4","0xd0d998bb2b3d67b5","0xcaeb66969753b597","0x58da81d87d1521a3","0xa035de7cf486e619","0x371ae41acac36fdf","0x283b775016b7e623","0x865127bad75a47a6","0x53ab5690da247d54","0xfdf7014501800352","0x6406d93177b08f40","0xbc68be362f9f09cc","0x7ed0d3997044b670","0x1b3b791f510a18e1","0x56ddf89608581797","0xd2c793ddf91d25d4","0x7d0e1879764c3ec8","0x3a8b79fe36d343a0","0xcfb415d61ffbf206","0xdd4647fbc871e47e","0x16c24af0cfb670f5","0xf036f9a1fc48a94a","0xf96862a3cffc7fec","0x38f4b7cb65cb2e13","0xacbf2a6f246dc1bf","0x2c782f7463c1fe43","0xa095257abe410edb","0x735df4623d528b89","0xb288618b4d14769e","0x6b6a90091909d8c3","0x3b1712ef51039512","0xa8ee137d9e7b85fa","0xc8feefc05baaef64","0x95e0ba1997bb4591","0x833a65f159bd9433","0x2a74ef4e4a65a056","0x385708d554b9d89c","0x77f0d621e2fe31b4","0xffc2782386bd471f","0x969417dfefb9c8ec","0xa0bfa59a4bfbda3a","0x5695e22715996439","0x7ae13a083bd96037","0x3698d5a801ce635f","0x2e6b0035879b1db9","0x57b6ae0c59c14522","0x08599bc61a745927","0xadbcadc7b8d42b66","0xbbb1b318af12711d","0xe61f877589ddcd4e","0x0e4f0d9e2a01679b","0x44040439bbd3746b","0x22df055b12e89b41","0x371b45c2904c939a","0xf7a2b880e0bac4da","0x4c3434f4d61d7a37","0xe4d47d4da44f189b","0x0c28ef5877561d34","0xb69e282b91eb62d9","0xdf39759eb1453073","0x5f3edd0acfb0347c","0xf376e68856f6d050","0x8ecf15701649a694","0xfae3784d39b9f2c3","0x14ac2edb6d22a8ff","0x50668096bc3806a5","0x6ab752eccd58845a","0x48bdac2c488faa23","0xb47becf4c27b1658","0xadc23cb5cbde0488","0x2461599e431ba49d","0x5aa5c8fa3812bc09","0xfaf6e774593da85a","0x68d21de4a61059ef","0xa3a66514a755cc0e","0xd3d2c7d559967b4b","0x96c692742c866326","0x6d2f9b05411d4ceb","0x5217f0315ec404f4","0x288b885f4262a662","0xffd40a5a41a692c5","0x7c569c7df6490296","0xc39c531081f751ed","0x5e284bf3f66a133f","0xae4f68cb2fb7a0c8","0xf531ef474c98b4ea","0x9b6364b52383621e","0x465f3c9a82b069d5","0x8a1c9efc4ce89384","0x46045d1d2c547db4","0x1ac7d9f5bb8dbcca","0x806bfc592ad18d57","0xf62fd10acb5f4d7a","0xdb1bfd076d0248c3","0xb09767756d7d3579","0x39a957f2f369a3a9","0xf09c0303fbd1dca6","0x48e283d7cac026f0","0xac54c912a32b2d19","0x55ee0a6ef6a86794","0xf2d0176ff5c90ca0","0x326d3730e7cbf3ab","0x7ac38a7070c49296","0xa25cee5c75f07933","0x33853e3b7897a8bd","0xaffaef9f210400f2","0x9399d86f32682466","0xfb757e98df211615","0xf190a3aa493a523d","0x6afa58ba1e563ea7","0x3eb18cdda5dab74b","0xf39ac5ca3f5d6c2b","0x24a9da63c0247ba2","0xb09a1719ee0fec1b","0xd14a6fa379d0e45a","0xc08c228a4b93cce6","0xe345de23597ed0ca","0x01c167cd22e9a877","0xa725b77c138700f9","0x703d36a491966d07","0xc5f2c3d2d928f7c1","0x8a86b8867bd52496","0x856432c408b4dcb5","0xf0cd6174e8d13d66","0x3b0fd37b2c41e8d8","0x44c40c053dc2db83","0x0a5e8e6de81b4e6d","0x68409612c0f9c820","0x00a06fd3eac89a72","0x640116d1a1817170","0x7c1ce875b5339aff","0x9fbcea685e782eb4","0xe17f065faec7cbcc","0x657bc7241adf71f6","0x9659939d0657b51e","0x8e777d9574728fce","0x6f99f3c53181c868","0x501f11b28d1f5278","0xa2a0dee17ca930dd","0x58d9e4243f4d0098","0x31a73f03be58f3e2","0xbff2f0ff90663eb5","0x315cafc2f6d2ea45","0x11e3c44c6075c8bb","0x2a3af93444a4d924","0xd27cb2c1e64541de","0x6825bc63ccbb9f33","0xd088cdc8e6ec5f7c","0x1548244862ab5be9","0x5ed824ff36478677","0x4f5d794167e50086","0x036dc6580fa95a97","0x67ea0d9e65d5b89e","0x2fe70a2dd4df4a3a","0x1adabc4353e42c42","0xd73d3081e6a6e5a6","0x15ccb3d64fa7481a","0x0cddf1ad95c1a241","0xab7b9b7d20ebd187","0x379b24e69ce3f2bd","0xd1bb4a53d071ef55","0xc9d227c8ac55f3b7","0xc9ec764c0a99c2e8","0x8db099bfa005aec8","0x96385d145a763925","0x05a2f816fb58a4ad","0x64cff59559e8315e","0x2a513ef1f82363d7","0x5bb2d37a1df9e9bf","0xf5a47a0acd0520df","0x333c7ed621bf4c8c","0xfb511488481fa1dc","0x3f2156a1951a5979","0xbc204f8aae56e855","0x5d74a346d261bf91","0xd975f45206e1c11c","0x559013afaab659d1","0x5f45a2d9bad6cf93","0xaeb506c95c0beb59","0xfcd4873cf7cacd2b","0x33c16c592e9f10f8","0xd56e8883b4cf32d2","0xc7e8782347f39a7d","0xfcf9ef815398ec7e","0x6e3fcb93ddf321f9","0x3229437f150dd346","0x62b09e37731e2f4e","0x9c5578941c9ccebe","0x1e0fc6fecc9ed8f6","0x19afcd59e0622494","0x0648a886f45e9d1e","0x0d464f7a942db666","0xe127495bdf659034","0x26ced69344b0b2e7","0x4b5ec8bbbbc8f5c6","0x2881a0ba769b0c84","0x6f2bc0c3cbc7bbb1","0x4c417ca8a28cd4ed","0xe56522f559f1ba0f","0x5c0d4a6f3826138a","0x3b8ad70606d1d0f1","0xff2371340dbd5ad3","0x41b2303f0f295571","0xfe04b345129a5123","0x5d94f501922682fc","0xf516871933fd7ae0","0x5b71b7d87bda49cd","0x2a6524fb412ca9e2","0xfe70e980a9e99c1c","0x44cb04cc17d5836a","0x4227f8f1bcc899d3","0x07c74767445ff50d","0xf497afc62ecf7914","0x0573501f4602388e","0x751da429673cef0c","0xe6df15422b360f24","0xaa5dd891caa30dc3","0x2c8a564117ba3c3f","0x48b05e44a90b5b44","0xed5c83d1cb943a5c","0xfaf3cfe2575dff53","0x203bc419c2d9b104","0x71b16f3ef13dcb85","0x71b8e88e1ec335dc","0x5c64694b0b6411ed","0xa2d117094b543409","0x6832439ceba81783","0xab290ebc32d985ab","0xde653cdc1d940ccd","0x8b2023ddd5a7d30c","0xdd1031a7d22f2999","0x32e9d6766464a84f","0x9b60deabb3fa1957","0x3438714e0d23b1a6","0x3d642b20129c6622","0x576733f7fe5ef717","0x1ad0e0a91cb28477","0xa2267c536fae7e79","0x4752fe0854124715","0xa72cb2c35f26c567","0x821c73ef5427670f","0x5bcebfa34a654f44","0x18d2fa80c91eab5e","0xc63d2444664af1ac","0xcaaaaa8625c95367","0x56858dae31c57eb7","0x25993cdb8bc210f8","0x3f6cd0e6836d4729","0x2b093c8061f755c5","0xa8fc8f09ff982d4f","0xd0b1a3fd97d01d57","0xf48fa60115222b5d","0x731e3ee90141aebd","0x2d4ce0c36dae48e7","0x8f626e46dd5e1885","0x0e1a595c597c21fc","0xcb62f2c9c0bf75ac","0x7c47825cc7e1abe2","0x845f52882825d0fe","0xa98125e59d6aa09e","0xc0b91cb4a2afe875","0x31d4190c4843c721","0x03103f8887d4bd0e","0x6c299f21a3fc0e99","0x3dbe3591177d9803","0x8ca18cf250c8c914","0xfa8213ca7a27b6f8","0x9352d664e48a04c9","0x1d67a870599bd8f4","0x86d218359fedce7d","0x6ce1479a20971013","0xaed623c3fbb9f7a9","0xef030139d4209e73","0xa4c3af5594408463","0x7bc203dd879361c1","0x138748cd7aa87f04","0x48ca83be6737d89a","0xb59b2210faccf99c","0x03d52a6dc0935429","0x0291fb1e948bf3d7","0x5d3fa68a72e2e573","0x031c14fdd67db749","0x990217614535e03e","0x1976f29dad8e38ea","0x5af7bc066e939359","0x79e74e6095fb1291","0xaefb252e11abd471","0xb4e05638a3df4bdc","0x92e7dc846ec8646e","0xee011cdcde6681a7","0x7d0fcf70752555f9","0x3da733b9ec8ef484","0x2f701e0fa85bc613","0x26f83c4b6ddd496f","0xbc51f5f082a9ab3a","0x9d40b3d70a8d248e","0xe0275295ce134ba9","0x965918962feec318","0x6b84e4ee2ea4f2d8","0x1b626fe0daa842c6","0xd7da4851d718c7a5","0xc484fec9b08b15f0","0xc0aabbda2aef2ac3","0x41e5b03dd82a306a","0xb07993c8583df926","0xce7edaee18c2cde6","0x1b7f6545e4daca87","0x9823c7bd40e8f53b","0x9add56c0162e5e1e","0x4e222438f18c21c1","0xabcdf5f667a59d2f","0x642376e60dbb9c99","0xe0791ae99414a595","0x13802d443a6284f2","0x674ce69ca7f98645","0x3c4bad7c789762ae","0xe1a76fd238133c66","0xcb2bd1b1410e9d69","0xa653affa41c9cc70","0x8760d304dfe8d278","0x65a8edda697806e7","0x39b70d144f18aeb8","0xfe55c59619c7bc75","0x684f14cb1349c5f3","0xc3a70f2b45fb6319","0x7454f07b17737dab","0xb27519d3494ccb29","0xac46b8bfa02626b5","0x37c0aa132d5efd24","0x34dab4a18807e05a","0x41650f703f4c1741","0xf84c2a99dec17a06","0x9003a6dcea430158","0xca7a0f9a8959444f","0x86a443eb5a71d5fe","0x8d97ccb460812005","0xcde82bc6886681eb","0xe51cca1648533908","0x60efbc80237185e1","0x2f5e40938560e7ff","0x41d8a32205741619","0x9ff1b87dd75a4009","0xb0a4d737b8bb76b7","0x17310599ef9c77d1","0x06e3e85804b834f2","0x1309e5453bbc369a","0x90c78b3153af768e","0xdb8ede3fa8c1a510","0x466c681728ff9d26","0xee57f2df52800220","0xa00af491255a4d2b","0x54fb47042f205aaf","0x5e38d5065f1da6c8","0x1ef9d2985db1c26c","0xdc84c723b350c1e4","0xc80c00f5aa6e3b05","0xd861f646af0c1b60","0xa102e44167fbdccc","0xd6fb31111b07f34c","0x2e62d5f56adc3ca5","0x963a0ce9c756b792","0x0ab19d59d8bd0aeb","0x3286b687c5227405","0xb6ea06242cfae894","0x0f93e33c12fab9d0","0xb09bc1b1c206dbe8","0x60868075a76f1141","0x67c1cee6ff7a9bf2","0xd7e8cf208f8b8509","0x662522d267e7f4c3","0x4b010e4b5c0b619c","0xc75659a3cfc71b94","0x761774be9bccf407","0x6d759ec9e202ba26","0xe01bcf68bca95d58","0xcb80ba00ee8745ab","0x3f1da0fd3b705868","0xf66f6f887c4405f4","0x42b2c4c35067ba87","0x1deb0de86085483a","0x95b83e7a5d7fa240","0x057df4699185593a","0x72c25839993e00a5","0x4636f3f1b7eecf93","0x87663d226a087a84","0x4f49cbcdf403429e","0xfdcf345e69f88e70","0x891b77a0e58aaed7","0x190de0bbadbfe9a9","0x7344a5642bf99775","0x1829a6d8d6d3ae2b","0x0846db0310fc227e","0x12ac0cdc6ac9b674","0x8bb507ee7c8d2864","0xe0e3a4fc5b8ccb1d","0xb85d63b6300e0a45","0x464cf5b55c2e06cf","0xbfb52fef8e19cbca","0x2cad6438dccf05fe","0xf08a81e69fc45567","0x965aa0e4ee8b57cf","0x0fa1482954c56d7f","0x5bd9eeb0f5377bd2","0x6b39a4e85d493ba6","0x38ffa899761deefd","0x86a6533fc52f6d72","0xd78801ca333a3dfc","0x83aa9b9a580aeb3b","0x8b7acb9a508b4d1d","0x2762a7dc2e6f5b62","0xbe7a12ab7b6c2484","0x72340995b4a6afaa","0x5b746694b48a9200","0xe93986bea9369660","0x8b3a18fb202b8fcd","0xb4a72754316d655f","0x6259c326b783deb4","0xf9a12d769ab8dc9a","0x00770e654f388755","0xa0141204bac556a2","0x7505a85919e45b84","0x2ee3e73a915830a8","0x980ff75fd32e2c0d","0x9e521b0e37c3da9f","0x26afccd93e2e9c23","0x208ffc2450b10b9d","0x32cebc1131625f17","0xe44425e925e621c9","0xd47d5dfb03a2305e","0xf75c89b9bf01a679","0x498036329aa56641","0x4e0def8414c0ae97","0x88cfb7099d6bf1e3","0xe82c6dfe42d886b9","0x7baba1f47da0721f","0x3ae73559d7053c92","0xa9e348a9025c7848","0x98a903f17822534a","0xbd70aea4f7c9ad84","0xfa388794951e8ea8","0x7f672ca4a8cca109","0x4d03722adfffa2b0","0x5d798110fcb2bff6","0xa88affce63c8532f","0x72269adf2d588b7f","0xdd370349c20fd7b4","0x7fbc041fc65f488e","0x938105860ed391b4","0xe05c00246c02a593","0x7fcaa372123d24c4","0xd6383cbe750f9bd2","0xb16ad25d3993d5f5","0x76772a259cf442b3","0x7a16eb306dd28a38","0x7629a9864eec612c","0x0fc21e2f2d22ac9a","0x656a0dc232ea37b0","0xae52ed0618fd858c","0x612cd7d4f4991f73","0xa6ad4fe65d07f2b3","0xe7aedff11db8292a","0xdacd859c41f29144","0x2d5bcc2883321cc2","0xcb672bd80226ff0b","0x52534e7c77e10710","0xfd899ef0ecb59cfd","0x3d01958796daa704","0x04e2c8789b2e20ca","0x10b2ba6a23f47fa4","0xcfe6a2c4942eca30","0x658ca29a198b8364","0xe78a84c22bdac73e","0xd623020266a18f59","0x996b51baad3e92fc","0x50bffbcfb1810adc","0xff38d416a3b02bf9","0x33b74bf3b7fc8f14","0xbc901d913c53d0fc","0xac7fee105fa8fda8","0x7e81c01a71aa528f","0x971ab8ecd10d7e15","0x92a438f35cc44e1f","0xb52c4d5ceee50966","0x8e4146d14982a915","0xe56400dca893e25b","0xfc599d6f6fb9b610","0xf37b772a80d137c2","0x5b67001585a6643a","0xa68abbf253b3f027","0x479b8dbf2495ce08","0xeaaa992a34d3b8f5","0xe8f76ccc6da8e074","0x144082bb7afda78d","0x5b0c265cee5dcea0","0x364f28840e7a6826","0xcff94a5f50c3d1d0","0x56d6e8d693608d5f","0x2b2f33494a8adf2d","0x61c4922ae57a6228","0x51be7480b7591a49","0xe99f57ddb2fa6f24","0x0d28b1c8c9a51bdf","0x7541e564270efeb1","0xe5f7fd1d8cb24105","0x07e4269d956e7980","0x521a98daf99bc0e4","0x2100ff16b8b0526d","0x06cd48edc5abe5a4","0x4ea4af01a7d438f5","0x5b3f38bb9cc46405","0x1e7f749b6b52cf6d","0xb586864e543f37f2","0x3c3dbc479ae35c59","0xa863e1e8c7b41657","0x7d390c828ec05762","0x070efc6fa8b0168f","0xcaf28087e622a9fc","0xae349faaaa8209e1","0x642484edd3f9d693","0x8b38040681d6dd52","0x2b3ae431d712baab","0x7278d3d848325e03","0xba2b5db70140d461","0x096d5dde736c3414","0xc1fb32b359f1faf8","0xc244e4129e45eae8","0x4605f7187c0e3f34","0xe1a058da9cf910f4","0xf789c90729fa1d81","0x9bdf2ca099287a46","0xd4c31251628c286e","0x8402b490bdcb94e6","0x7dfdcb3522647e87","0x7bad1d3a65e6e0b3","0xf12f7dca39895653","0x5f0e9ed66aa86111","0xd054c5147663e76d","0x2fe0f6a4251de743","0x83754bebb718a07c","0x089a3cbdf3564769","0x260b3e099b78b7d7","0x76e4324f395ea22c","0x82c9716924957a70","0x9267e3ac08bcbf6e","0xbd17b15c79c1af92","0x9f1cc17c7f94188b","0xd5ea327c0669badc","0x629295f767c901d9","0xb7a9a7b9fdeed62b","0x4646b14f5d87e725","0x2de7d3a54652a4e2","0xc20b1877d082c936","0x491b4207026ef0d7","0x2bfda909e771806e","0x6225f459561ea0e9","0xd3c6e928167dbed0","0xec4bf82c04100715","0xcda67f0dc0bb0805","0xf0dd147919cf57bb","0x3d9569e99d39c4dd","0xe63faa9b6a708acd","0xea8090a2020debb7","0xd73b27cf3408aa99","0x33a4444e5df8fba6","0xd1727242637e0978","0x6c32c8a2615522d3","0x10931330bdb68ed3","0x094b92c477fdf1a7","0x9abc48f0113cf40b","0x56380b7630cd7b43","0xfcd98e67a32f1515","0x979407167526c810","0x1f8264ca990e5b11","0x551c69be045b11a7","0x7fda4134beb25259","0xdd0c65ead336b87e","0x0939dadf6273ff1d","0x4a44e0017f69a5b6","0x168d310f374fcc47","0xfbd17f8feaacce61","0x1004420ab29fdcfd","0x8fe700722c219ec8","0x96995ffe4d37fe93","0x53edb88040429896","0x5586f4d0fe3cd003","0x0d7ec9b56b5a5d84","0x0394354861c69d64","0x876847447da412d6","0x3ebf06ed554bd374","0xb0abc8ceb0adc881","0xba83077203fc23e4","0x500bd265179ea60f","0x13c1befeb7616175","0x3e6414ff7f43c6f7","0xbeab3f00cd9c0bd4","0xffb401458d97755f","0x1e09ab8995999cec","0xcd35e2b6763ef482","0x1696710e89306dc8","0xfb0db692893bfdb7","0x4aefd43ecb307d2f","0x2d0767d28f6af3b8","0x0c9e3f50b776ae1d","0x51caa3b80dfe354e","0xa7c5aaaa2fe9231a","0xcabf2a55e131fc4e","0xdd9dad4f6df49ded","0xb1f0d292e97a940b","0x1feebeaa49fba727","0x321ca5f8bddf8856","0xb4cfc38afc779cb9","0xa201e74e0a00439e","0x58eac9cc31daf13e","0x0f96190a98f65926","0xa93018ca725448d7","0xb232442a4264b670","0x418bb769f0b5bb3b","0xe100844a5ef90e6f","0x73c7f0b336bfff86","0xeb8ffb6132963d63","0x0f17b15a292378e5","0xb7c81a5861f7f3b2","0xd949321405f6e65e","0x88d3468ccbcdd2f0","0x57ec6ab352b13e5a","0xe751d828837df622","0x0a9a4ed0546f7d7d","0x5209e1e11d38d140","0x174ae22d6b1eee16","0x43bc6e1aafe88e62","0xfb360fcd7ca5a2ec","0x676bf9abbc89d76b","0xb8aa057b646b07ef","0x8552723985e02f05","0xe1befcb060edfe4c","0x25745d9ff576943e","0x05857d1c2902961c","0x1021d8b1103474bf","0x5fe9f0dd941f39a4","0x6b457d1ff0b6c8f9","0xbc89184cc13208ad","0x4eb5f9d2d0024db9","0xfdb87d709cbee157","0x8f882b8267893970","0x346321c07dc81934","0x5bb30c8a9cbced3d","0x98bd6ab7eff7ce16","0xd8664351e5674c69","0x7006b734ed7b8ec8","0x2d7b8f3ca43378b8","0xcf6b62041470ffc9","0x743c1f5e92dcad49","0x5199d5bcaf23991d","0xbf0cc38f6460a803","0x26505b3d39b1d4a1","0xab63e32a89fe6daa","0x117d98644cad1b49","0x3b08e21bf5b24b5a","0x98deaec989d62bec","0x64aa0da0775cba02","0xe22edea9716093d1","0x20c6fe1f7c4b2664","0x88c1564e1ee5322a","0xbf32f6b45370c4d6","0x4862458e3f6c430a","0x36f8c76ad5916bcb","0x10b3d0d1782936ca","0x9af8834124115b40","0x7de3df677fffd3c9","0x2702b45792e5bf20","0x1606ff6a7c4082f0","0x63953bce68a3d573","0xa15c64a61e1b42bb","0x4bff0401795d3f28","0xedb0c90d8908308c","0x0b9ea24ba79d26e3","0x0b51e3f869e1195c","0xc5a04d4b78a930cf","0xbdd69bac1701cfbd","0x6bb370e74130b8a0","0xe9f06c3917be8e5f","0x0a43b9529f0f5e38","0x3b2a018113c93161","0xb3cc4557b5441a12","0x2c6163dbba1c478b","0x9306fc2ac633b4b5","0x525d6eea9876e700","0x312777e6efce3b7a","0x253f91ceb1ad3cfd","0x7f08dfc5a5fff61f","0xe5f0da94cb166cea","0xe30d46183fd889e6","0x17283b6d41c1b91f","0x10670aff2a852988","0x89f10bc1424aa1d4","0x226ad4c73c4940a7","0xd2ac66625acc7e56","0x613e690d88b992d3","0xe9127b8ce065e037","0x8647a12e5985dab1","0x4c1290be33812378","0x9aed689290c55335","0x6bcbdd38dc600ffa","0x4f5c0266547ed9f2","0xf616a147b98a3e4b","0x73e84328821ec1e8","0xe88df1a716b49588","0x24ad9d339270d16a","0x66377fd8ea6b84ea","0x45c0f595612ea662","0x60b1edeab4195244","0xaef6eb4f40e3ee21","0x60026a5e5dc8a8a9","0x7756f4b9ef709364","0x5866b848227023ba","0x780438fc6d6f7412","0x7aefaad6dd38f1ea","0x1ab87a5725e37730","0xf592ebba8309b18d","0x357e4a90545bd91d","0x5c6ed83b3f93b06e","0x9d8d6f9cbbea8616","0x764cfb3383db3f34","0x33476d2d6f0afc31","0xd72803825b7df002","0x9f0648aa478b3c54","0x2a5b800fd4e0da94","0xdd20cfa01852a485","0xa898299c938d42f4","0x846de8802fa7af40","0x314a58035c362b3a","0x057a80c9fb10bf8e","0x33470ae8a1695a94","0x9847695f9fabe5e0","0x13ff7d4779a51158","0xd2e627078a80fa8e","0xea24cc5b35eab705","0x25c97be3bbe244ca","0xa7af1207455b1ecf","0x75d49581a0da2eff","0x482999d14a1806cb","0x12f3bd50415973cb","0x4ecbaa39b5cecc25","0xdd1bb8d6bcd18e02","0x489c80a935226f1c","0x2bfc5f717a40885b","0x0434ff19150f6154","0x32bcc377420c7357","0x4e221983996492e7","0xb014b0ab9c44b5fe","0xd5ef9cb736294d0b","0xf317297b39c41f8c","0xe7b8765d92cf276a","0xde20aecdfa1cb17c","0xddd93e6135c335f0","0xdf2299e44be63e39","0x87f44a7d8f4e3766","0x8bfe293c2a9a99c4","0x33eadaa1f38361c0","0x3eaf74807032cf59","0x90b624b14e52ba9c","0x86785300d486eb60","0xe3f3158906833744","0x666bb00846ba1e46","0x21034d511ee4a1bb","0x6dbf407822a23d63","0xbab26d97a3a43235","0x5c0690c9d00a8361","0x1c53109117517931","0x0c637a592a86849a","0x006a2d1cfa2355f5","0x7e9ec55540c8abc4","0x1c96792577fde28c","0x84a5646e37b5a930","0x939a02d1e1e9b52e","0x13b851408970edfb","0x28a1a88343dd24b4","0x72d53dbd473da9b7","0xa50181e6373e53b3","0x0dd764599933d838","0x51e85d63619e5770","0x91db6b434fb693cc","0xc31d68f384bc35c5","0x551c5f9f41f26e32","0x386d04103878daf9","0xe57117765988f6b9","0xf00facffad89e863","0xa829a438d065230b","0x7ba15351c6be25c1","0x6fd0a838cbfb8648","0x3358c948ff8f5d88","0x1d4fa8cc9ca6d857","0x8a01ef7bae2e4c0e","0xda3ee4d9d53090a3","0xd8796f1f90b4b2ea","0x5b67fab56d6b6278","0x34c7910da7bb7b27","0x9009bb759adca26f","0x05bb077714ec604b","0x30772fa5b4044f8c","0x3532525a0bbc25ba","0x73d3538b985ca7d4","0x97c317d6d06d4813","0x0e0ecdb5ae5889e0","0xa59b382df6070035","0x86c5044b90ee476f","0x386cb7c271dad59a","0x22b1ace9cca9c95c","0x81409dabb8e7d4bc","0x05a619b74b0f32df","0x82e79b0243a7e684","0x88fcbf5c0d185bb3","0x812815c1f63ba61b","0x91f22cdd661c35b0","0xb78396f9f98d4cc3","0xc92930055d39761e","0x61790b7261a74058","0x32d012fdd469a2cc","0xd79dda2696eb9753","0x48c91fde5dd1b989","0xc3987cc3d2c58961","0xd2c97917f12af721","0x1d9c35707e06541f","0xa8daf04474f0c58e","0xa5da7d7b1e877bc3","0x4ecca281fddeb334","0x9cdd4c571d3058bd","0xdfc449ed1b5af86c","0xe621e26822e3d334","0xb5e523ab58f89659","0x337cb08d34ee8ea4","0xc6739ea4f683b774","0xe081f3ec5c4f7e3b","0xbd1fd695a7315820","0xc53f9c040261ce2f","0x0cb71ee4e9089c3f","0xf39994a0a78f8a2c","0xd0383a41fbaae0de","0xac87edf2be36eec9","0x936f48011925a0b2","0xfe4a674cd7865c4a","0xb6ea428bb287b1eb","0xa44ae038b069c450","0x3bced902486f2001","0x84be7949395375e9","0xaca3d9bec580655f","0xfc1e5959e860dca1","0xd103db4b57777b59","0x78aae54f14f56445","0x1830962e6529215a","0x8371cf7983c92e3b","0xf9d7192881f59c28","0x1114bd38494af2bb","0x53c0191e144e32d5","0xe53d743208a6a096","0xa97e6b787a6d29ad","0x6d5ae05715fe57b8","0x077defa89cc9d73f","0x2569ee0d6e3f1e4b","0xcb46766eb54b4ab5","0x3f76852b929e2b5a","0x72377a4193428ee7","0xf7654174ffc139dc","0x4930eea2fc21ffd5","0x5bb56200d37dd03a","0x9f292724c5bc88aa","0x3ecef96690aca9f0","0x0b48c8530e55a07c","0xe561a14d329e7ce6","0x7f01d391ddfd7328","0x0852247f2cd1e513","0x5e8f36eb238a442e","0xb19c92e1e7586307","0xe9128441381af5e5","0xd4e37c5c452c6dde","0x6a42b82e23468295","0x06f467dff608e331","0x867d6f8b8f2c5f47","0x5862c1ffc9cfb9e8","0x3a037d7e2bcfbc2f","0x97efa06922ab497e","0x35399ac46f24af7d","0xd6267017140bbe6f","0x7aedcaa696cd514b","0x3cdee5907073480f","0xf18c75e32bb1276b","0x347f3612040eb5ab","0x96dfce2aec135f57","0xe0ef33aa6e8f00d5","0xedf78af4ab9e2201","0x88bc05fb0349c466","0x3c8dbdf2e279c5eb","0xcba4a33483d45edf","0xe0c2f448dc5b5476","0xd4db059d722529f5","0x14a1070411c474f0","0x2614d5ab004a64be","0xfb2ecde670f6de59","0xacaa55a7c18669fc","0xb942d28b7fa8270f","0xfaec26353f0d9e57","0x7f1c7ee48a62b291","0x4a3b5a851116a995","0x320cc1fe21abb41c","0xb873817860d3012d","0x6a19b8d33e3ef423","0xc52f3339383bb669","0xa222020ab8decb35","0xa9d74691dd079885","0xc608258917a15db9","0x4c40f13db77c8376","0xa091e72c25b96671","0x47ded682c9c20322","0x7d9f09d2d29d70df","0x87379756b7a25105","0xb83c2b3e3aee6aa1","0x4ab852597e5598de","0x07e15b0436a77362","0xcf73e7ab32e00dae","0x22936fa430e9ba7e","0xabf66b5bbfba6b96","0xa94568065cc09a0a","0x79525b4780b166cb","0x7bf0c635b8eda082","0x963af37fe9ca46fb","0x3ad67ac8a84b768f","0xbbb99ca4f15ee456","0xe6bacd05470004b2","0x9d6b9ea20229dd9f","0xdecf6b9fc95cbbd4","0xc4441aedd860c395","0xcbcb300d9a406dd1","0x5cf11de648db2178","0xbfd689743c5571ac","0x1bac1d410fe20937","0x4221f3edcb0ce13a","0x53c4ef345378496d","0x7463ccc9aa777d11","0xe63bdf4a05dfbb88","0xef2b0a13af37cdc7","0x25b2c11a5e32879a","0xd425b46e80baa941","0x529e58a4f43abe6e","0x8f743278c4f4f397","0x52fb715d8abfff15","0x6b54bd06ed53c49a","0xd1efbcaf1c83bb43","0x20d048e474c5fe02","0x54e172d5d0f21a09","0x45f5e16a382e2497","0xb8e36a2f740c2f16","0xf19a2c5b51fbd856","0x610d1b6d91822084","0x876d374ce5529d71","0xa7a8d52015cb7923","0x6e533434c2bb96e6","0xa8d0acee465aaf99","0x40ef1cfa214b9e59","0x66386e6049c6c85b","0x300855f05c9f5a5c","0x99545842a8a274ac","0xcbda3ba461c1f883","0xf98fea45a0f20e36","0x00ddc2d4d1a5446a","0x8ab9a2b63c6ea19a","0x251ec0c18ff5b6cf","0xe8067f6d6d935644","0x982dcd4c81286094","0xda613735826a5a73","0xf2b32ee70a73f4de","0xb8fd0dd1d07563aa","0xb2852ee19a4f3768","0xbea189748d8ebfa5","0x4a171638e94bd933","0x871d363cc2dcc8b7","0xb8411a14ed8fb85a","0x2c0db80023b13a0a","0xb85b6e93f1d445b8","0x4da5128edc79b4cd","0xe9a45c298f87f979","0xe22912ef43da23ec","0x1b3395349f912327","0x9742f2ea152f2da2","0xeacece031e04e7cc","0xed719aefc2c22ce3","0xc032877377858a56","0x7740f5f869f330c3","0x3d426e1eced321ae","0xf4aeec1444ed3480","0xa1af2ea691d0901b","0x7da70e93e20cc584","0xf08e9e60eb6ee10a","0xbf21ac602293c521","0xfbbc747ba667224f","0x86defe6224a0fbdf","0x88813982ae633489","0xeef734d09564c466","0x1eed5666c02b45eb","0xa061d0d2ee68840a","0x7532d1663a736642","0xd05ee7f40cfd217b","0x5acf0b1201a57f7e","0x1ec99d15a51f2b22","0x2f4db7596198d70b","0xa3bcf907a2d4ccbb","0xec8f996304dad85d","0xb140a5aa2373409f","0x4f700b9241cf522c","0xc49d849831b505e2","0xf103bd7bd1ee5e76","0xd23a248205aa58e9","0xa67083cdc25fdb6c","0xe2442fbf85e8a7e3","0xaad04a980ba9a42c","0x3dcee04c70c197db","0x34d455f80709f130","0x6ed27bfcafea1d10","0x9427880b8a0161dd","0x814bdc852a3e2129","0x9ca85c75be6343c1","0x83fbb2a85b2e479a","0xcccea69f2c449fe8","0x85e1772c41592298","0x3bd6ab7188bf6add","0x2480cb2a6994d4e7","0xa3b945af3889ec9c","0x7937489887c450a5","0x63a8fb1c55b00de7","0x2e8dc09de8f16fd1","0xe837d1684fc9e1b6","0xe4f7547a032bcb9b","0xd7f38baf5938ebdc","0x57101bbfc5f6ca9a","0xad3a451e1db50c9b","0x8d998165cdd82980","0x8385556100438fb9","0xa0df5dd557c65bc6","0x072eb6ddc3b9a752","0x9471f9c083913719","0xdb4aad51104c341a","0x8a53edf2221e02d9","0xa2edc675d1d260d2","0x5db48ecb8f4a8442","0x59bd6b0506288de4","0xc26d9a5f4d7b97fe","0xd01fec916e3bef56","0x97f9eb9996372ac2","0xff7f80a63050ceca","0xdb23dca8d165b553","0x557b8b61f066b73d","0x4b258328b7a832d9","0x535d4007780163e2","0x8831e5c100f6a29d","0xdfb75799f8567f73","0x9820e7356a1d4ef4","0xb83e8945cb3e1060","0x080b4e441816f788","0xa762b6e06ee3415a","0x13ef6a96b649e732","0x5e6cdc275f04a3fe","0x0c3965c3b2248198","0x0dde8d4269813d67","0x3076a676a31a3f84","0xaf501924f014fe04","0xe92c381756d6eff2","0xba46437cf5b910b1","0xbe8c78af04293626","0xad5685575cc88afa","0xbd1e983ee6e745fa","0x749e90f1414e6ad2","0x9f6078703ec9d685","0x1645cb3f6072c188","0x2c7e1904c241b779","0x45c538ce68595f2b","0xba26b18e27ad494f","0x4c77b3df6fa677bb","0x331c36e1251dcee0","0x70838acf04c50b99","0x3f9f6ced58bb0e22","0xb708c7d089120d6f","0x119d2f64be117523","0x4ffca1e88301d22e","0x71df1f0725975fcb","0x757a1cd9c13a73fc","0x5790c33116b3cc0b","0x80552f79770119aa","0x9ea8ead8432e5d85","0xb26a7e7b1a3d942c","0xf5a8ab26cc05fd6f","0x9f26f25883bc1126","0xd4657ba7e1d676a5","0x1879c786aab645f7","0x157362ddbfc8bb90","0x256bddfcf85947c5","0x3db325082d2f557d","0xedddb564389b8cb2","0x3794890562b9bf18","0x58b15ef642347ba8","0x546c98ec77749c59","0x046d3813add782da","0xa3fbcd3f9439f2f3","0x91755d5a69b353c4","0xd6eb76a3184fd063","0x9aaaa92f42cf8471","0xf2b7ec4bea664417","0x35809a46026cde73","0x7b00e10748808801","0x7ac55562d5bc90cd","0xeb1953bb0b1a1e0d","0xc6996b68a9fa83a7","0x56185061532969a2","0xf43c313caa6a869b","0xe7829456b1b06be4","0xa9d9b6369e8be4be","0xfa7bd87bf9e1a841","0xa4abd895f5a89f19","0xb6e553371b43b15b","0x5c253bb8485340e3","0x0966eec0d88cef67","0x6193ac25c379a4b5","0xacc5fc6053a69f2e","0xfa582026505c35b6","0xa4c2a74eee281f28","0x73a718a9b1904e67","0x7b06cee12fce41fa","0x4c99d1a6692bbc0b","0x1121462695338bae","0xd6943e16bf8a2a60","0x47685f4340eceadb","0x598834f5cd3181ac","0xe0e6b15ad99124c5","0x9dd5737222e78f04","0x7e1c6eab318cffe6","0x87ca30ec44f785f0","0xbbe52f90b8ff55eb","0x205f4921515df042","0x563dfed5168d58b1","0x36ad65d81b436204","0x177d61f54afc3d05","0x9aa10e73414c471c","0xa5bd4817a32debee","0x28dc8e9c09b3873a","0xef1f39e9655d98c0","0xc09607e073a86c13","0xd11edd6a3cb4f68c","0x1599141a2bb23cd6","0xd09b84e7527dbc81","0x2cd691e42e546e28","0xd2be0c5509a9b083","0xb16c53cee1ca7b15","0x1f6f5fdab940ac1b","0x7d37a1ec65e8f9c8","0x5c7a6c7b8f2433b3","0x3c58e1edd126215b","0xd5b6290f3c84ec52","0xad5c7c59bc09233d","0x8d3a7db6ffaf46b7","0x5ec83947b9b65a85","0xe7b48e3e6cbf9744","0x46c6270bc0747fce","0xf355b34adc07fd94","0x9aa33086f707c229","0x1a3cb38821885c90","0xf8029c4e9b0d5e12","0xd7d72274e490893b","0x1c60f9276e51e57a","0xc2b2729881a03c5b","0x87849878aac10397","0x4c73e8f5fdb836da","0xae27fcafc7708924","0x7e287a123edac59b","0x7e365ada68a37fc6","0x31c515dc7e14dc5a","0xa05ada589d41bbc3","0x988cf40aaeb8fa75","0xa12a01736905d383","0xdc562dffdd9d3e3a","0x1d593a75472a4f84","0xae045aa35b41afef","0xf671d7992cf003d1","0x3b7304ffe79452ea","0x457b6687c9f04e16","0x5e207a6feae7a635","0x925bc4897d595224","0x253220a0dbfd1794","0x50777db7ad7f9bb3","0xe1592949699cf5ce","0xa360deacf9316b2c","0xa11b5b52449b70d9","0xe4347fa7cb56301d","0x13bfe0291d6bda06","0x5bd40e5a30f08be5","0xdf0abafa91b4e12e","0x96a7dbf8a65bbd88","0x98435282e2f481b8","0x5d6acf3db0af5172","0x931e653f7763623b","0xf0b352962b964fa2","0xe95b6d9c8eabdcf0","0x223140b032a5b34b","0x93018b904e791f64","0x1fac06df908e3b0f","0xe9385d347e5c3a78","0xe96e431e96643d20","0xda9c650489b2717c","0x60d74be924aeb28f","0x551481df0a6920c7","0xf4ab784aa83a76be","0xb1c6039e415588ef","0xd9522d25d0747f91","0x945c9e4957ed7a54","0xa570d05b50c63646","0xbb56ef3ed2f641c4","0xea24cf9c7c34ab1d","0x421e4fddd424540d","0x622ff37e335c6e2e","0xb25bac823971c3f7","0xf180a71d510caae5","0x8f641a795fe45aa6","0xd29008673963acbf","0x43622d1243dfb50b","0x5dae54b4a20e9cdc","0xc3694b4c061830ad","0x7993fa6cdc7c1f1c","0xdd3025711e5a5c8b","0x1445b0e61b5e8cfe","0xb5b70db538dd7c0c","0xfab31bf0ac440cc0","0x9396fc7ad55aee08","0xcae9157343e3a470","0xbe99623a9fb98e9b","0x18c5e149f5f4e24c","0x597f8829ef749e17","0x59872715ba7c0e35","0x8f24c974b2a8bdb2","0x82773a3b1db265f8","0x330ac5cf634be194","0x6d5cc8576841192e","0x60e7e841e3ba216b","0x67003ce8b4149d10","0xb9662fda059d36bc","0xa9523e7bbe60833d","0xd38c06aa3aeafd94","0x72a213674d1f7826","0xe3f30c5d7a7ff358","0xbe9ec885f521ef06","0xc96d932ac4b82557","0xe43520c06e64573c","0x76c73362e01c15cc","0x55a588c458653ece","0x9420b259993eda3e","0xe5005b71369ca978","0x2de26140e2ccf06b","0x7590c7f1e1557cb4","0x7981d2e35e307035","0xc5c432bbf0d82c46","0x495d398088051f57","0x770f029328e7ef9c","0x38b4a54e4be1dff6","0x190c414e1fd502e1","0x6bfc4f0c774d92ed","0x022d5b61874166ca","0x898d8f100c0abc33","0xd1a7581936ab8228","0xc9f8a99ecba8a2fc","0x78d8516d477bf4bd","0x33d3dac20bec377b","0xb9c5668c1e54c3f7","0xfd5cd8ad0e82682f","0x5ab60a64c789f0cc","0xe83f949aa3d0e132","0xfb4dbcfa6baa6466","0x5a5f60b41dc67f20","0x6b2116915ee5712a","0x3a0abce258637a14","0x35350ebf7d022596","0x110c2fc2de44469a","0x1b5c8d11884e851e","0x593728051d456b66","0x92271d8ea61553d9","0xd397232a36345366","0x5c602dfe4f92c6d1","0x5c2cae87b4743e83","0xe4c68cff3e65499f","0xbca6c3374cf24583","0x97409a0f4f98d9af","0xb7adc9ed0a27cc19","0x5186b00058e4aa3c","0xe6dc9dd31965b878","0x617a516355294838","0x416f875945e5d2a0","0xfff70e86f8932027","0x7f5085989e03fad0","0xc23602ff3ee38508","0x2c44e3542db9f319","0xacc7581da9980be7","0xf5d6f61cfe4b1b25","0xa7e3900ceb2829e3","0x614df07bd0a861d2","0x1b11e2399590f8a0","0xa4a01fbf517cd556","0xcdf64dc12d1e6f15","0x807f1b7f9ba374c8","0xd3269b5ea514db47","0x33abae1141a08833","0x05b9a0962225106c","0xbe6b8505e6f28e2e","0x042ba550e39d23e7","0xb602b2696e3c44a2","0x95deb41592b6d42d","0x1edf16562ff353a8","0xa14382616647ccf7","0x0e306625c03383be","0xeff05a3de9f4b4d1","0xdc6136c2df2e5c08","0x19d88557fbcf144b","0xc074e998a87188db","0x2b56186d5889ae47","0x48843d6a54f5abaa","0x194f344019244832","0x35d190cb4b171140","0x1ce526cb934118a4","0xc28dd2121d5221bd","0x2e82f64aa7c386a0","0x3dd41aa8afa807ea","0x84d4c9794196053d","0x456bb4faf4c933cf","0x002142f96f75d3ee","0xf7c65eaf8e7089ab","0xd09585ddfa49962f","0x3224e50a212163f7","0xf368f8240d9bd074","0x5fd23666aaeb1af8","0xe602349b566e0a8e","0x28b7268bf3186a6f","0xf6984b4c29dc7a6a","0xb1e20dedc4512b07","0x8232c3725b453439","0x9d7374b9681eb610","0xcf036704bd4b4397","0x710606fb6b11474a","0xe96170eebc0b86ac","0xc0399ecfbfb1e559","0xc999bf208e793af7","0x0759269cdd4f4132","0xba786ee6e151294d","0xd8d7990beb5c8029","0x2713474e8dfa1d83","0x77ec0cf8ecab13e6","0x99ae0993ee053f2c","0x3c773467dfa2f0c2","0x81edfc18613bc64f","0x4c14a0c34a3d5cc4","0xaaa42aba5baa206c","0xcb8814b923ef2c2b","0x5ccf0e4dc8491541","0x471961820a3e01ed","0x1cbf1c8f186ac01e","0x32448a309bfb19e5","0x22fd498a8e00b217","0x24fc49080dd19a7c","0x9e9e6935e0e01663","0x8507cfe7ea5d84f4","0x16dd809663271b0c","0xdff93f5bf9291bbd","0x3411866c5f46d8da","0x5c2b4b7c2e48b93d","0x3caa51150b67db69","0x24dc59ff5cc8b95b","0xbcbc0a6024db0960","0x33874bd2bbb65e05","0x7cc5e0f791a9e6ad","0xf9d31c6a3d910621","0xce00e79f77c3e5ee","0x50fcc72c1aaaebe5","0x1b1d205c97b15b7e","0x828fb9477116a518","0xe6b57b2dff373c0b","0x7b92102a26aff8cd","0x00ca6e1a7699057c","0xa241d1f2b37f085c","0x8a161d187f556443","0x7ca802873c517a73","0x536793e27c481845","0x3883bf7228dc896f","0xf5a6192330c85704","0x057f902c21b7500d","0x2fbccdf08cc2cf88","0x82cd6278d750466e","0x48053b45d0b5e568","0xa21df0df3013d680","0xfda12285633937c8","0x5c4b78f03fabc4e3","0x5e891ed7eea47e65","0x377c40faae6334a6","0xe669525ebea38104","0x0eaddf18bff1e85a","0xac29dfdb9bef4d83","0xd1ce3fab32130fea","0xc9c9d71c6a5a4130","0xe912cee584589f36","0x89b75a6dfb89b40b","0x0933e95a671ee235","0xfefe7b9e5c42dae1","0xb7c1dbdacdf982b5","0xa6dc83353b83fc48","0xc8a4899a9895e512","0x1827956cda39327c","0xf28141f3960962fe","0xa0e82d4fcef1d07d","0xd208babcf5afed39","0xf3a9dfac9cdf4247","0x43e301e87cbf80ee","0xea70d9e4437ffc28","0xc5a9afd9aa59d9cd","0x4bec8b550db7ae1a","0x41bf60508a721d46","0x20d2f53fad8786e5","0x0f3cf43213e75d68","0x850a5d3cc2ad607a","0x53e60f55fde85c1b","0xcf255f192b0c327e","0xa6a67a203577e987","0x289cc4fe2d9eb0dc","0x9cbf56c754c93f88","0x6fff4f112c8d7f32","0x6bcb2cee9d0b7d90","0xc7d0147bd470e1c2","0x7f8454abe2ef72ef","0x869b6b8a117bc82e","0x224d4203df599c5f","0x7f7a6023e7b0147d","0xa6bdea0db3ca9c51","0x9ae4caa4dfc2f3f2","0x695ee2abff5ff8d7","0xb7a0db0cacb698ff","0x2f7992a7aeb6a90c","0xf6e3fe49b459c4f5","0x163ca7dfae1d86ed","0x382a90cea1675c45","0xe362c4d232e18a14","0xb2900783b0807a5a","0x7128ef2087d0ab92","0x94f676009d3e1d74","0x5bf6cb80733384d9","0x3ea42248f9d762cd","0x77edd5a4fc30e66a","0x349f64ce2f6f3e92","0x76d0eac348484ad0","0x70c6a8363f88f1f1","0x57aa6d654c9b5d6f","0xf636cc01e7938ffe","0x177ffe31b9b19135","0x42651d55a1bae376","0x04eb8ca8c640a3bd","0x736637b53e8b0fb6","0x10640aedd51d8650","0xe9169dab6e50436c","0xf4d186fafb94d18f","0xbc8854e8609d0177","0x95d643fba07ea7dc","0xed73627541922464","0x82bd78db864e6999","0x5674c60a41203de9","0x286c9a13cf5e9916","0xdf84a19a499fa5b9","0x43f98da7d49a4518","0x15381d7926c4b6ec","0x2aa5fac785bb1449","0x7193e1f3b08c3f67","0xc62e84a641876f0c","0x0df00924b1200035","0x10091261a8a92e84","0x2fe651412a6dc939","0x91cf77493e0ca1be","0xafff3d1ae77e37ea","0x3ed31fcfb7d3dd9b","0x7eaf1885ac1d29b0","0xcfe2d4e96a353e32","0xa3abf39f34424bbd","0x145e6992ce88ca60","0x799129125a40eabc","0x0dfc1d17887bf153","0xaee96f7d02fda7d2","0x1e4f0fddca4eb036","0x8591140cd78e77cb","0x2b0366bf592aa049","0x997b3aff7403b1c3","0x166890e609ba31c1","0xd856eb5e147c009c","0x276c172b68d5f3c0","0x2c2eae2a2e394805","0xd63b0be1cf6e458d","0x3b08104eaf5c7f1a","0xeaa7bb06d0b57735","0xe1ffa56d4ad6f8e7","0x6c6efd3a188a7679","0x4f9f7a623e2981ad","0xf4489494fb7a62c3","0x600fad5cd8b4a114","0xa1d9f5aa2b676720","0x3352c4c0655101d7","0x995635f5364c59f2","0x7f3e0263248425f2","0x996e139bd1a133e5","0xca7d111d265cdf12","0xc57dbe7f0c8ef208","0x2420f107c148b99d","0x2c3e2389eac8fe22","0xb4cd94f1d6d6c5ac","0xb2efe0b247e8162c","0xa1c644ab17b18d6a","0x3b09c6bb01ff5d46","0xe580193ee11a90b2","0x379d87122ad29128","0xd353a2ae2714e96e","0x7486e402830daac4","0x9dd832d3f238a441","0x6e30eb7cb388614c","0x45f6e7dee4116936","0xfdb7aa1073a4e96d","0x4084a94a31873bb5","0xb34fe3e94fc8668e","0x3e50993aa7ace494","0x6fe120800bec61b9","0xefb4d5ae81010985","0x327a181c27adb69f","0x40b34d62c36fae50","0x3f62d47cf2b6b25d","0xf05085e899138f14","0x0d60b32614a0d48e","0x109df248a4670ffa","0x2bc8e08572e05069","0xaf2bedb7c7203999","0xa1fff14af3a22a46","0x264a70cfea54a441","0xcf1c3061b5b48ff3","0x04ebbe5dff6ca370","0x6714ff35aa4f2a5e","0x995944ab312b9f0a","0x3a11201e59489c88","0xce04d02f3f1b3ca4","0x3330162d84e7a9bd","0xc8bbbbc2d45a05cf","0x36f618f9d61dadac","0x0db2bf43703ca648","0x25210c4916af6b5e","0x6b0970e1a5b3b4eb","0xd3449e55c670cca6","0xd05f2e7d1aa10c85","0xd9f9779e2721a1c4","0x1ebf65e8ee63a2fd","0x7554365b15f83266","0x7af27d4eb9529347","0x268d9229f42b3d2d","0x88340f4849bdba26","0x78d7dca936e6b98a","0x62ec639b764175bc","0x18d6759f487c639a","0xc1c37a7a490a374c","0x853a95acce60786e","0x10791ea491d11f42","0xb083959c6e6b064c","0x5a6cddf7e0dd4421","0xb69ef4c48dc562e2","0xfb95fe20f37e7010","0x7f4d15ba5072dc3a","0x1c9a8b6908f77e94","0x2ffe653084226cb1","0x1496113518f823b3","0x2c2841316a443914","0x735d79a269062a20","0xbaf605a906c4190f","0x8bc59eea52fcba00","0xe915a9047366d02e","0xa5f72cfc2ba12cb0","0xc675964d37c4b53c","0xa390f8e57cc94a81","0xf35a24f0c9e791a3","0x81bff11f1e5128d1","0x34791b548b1bb0e2","0x1387f1ec595ec50d","0xc9fa3f7c78a2e905","0x317dae13980532c2","0x7fb1515120c12ecc","0x480ba1aa7276a4a9","0x0513ea0d4fac44b8","0xfb66c8a1b2975e2d","0x59e02a8b19fcd58c","0x4ba9ac17729deb68","0x109f7bf7eb5d70c1","0x86c2e7f39d67dd34","0xdfb1a3d2d8c00b06","0x70cf89beb27f0650","0x3ab4854bc3536197","0x87600143a92b365b","0xfb1bcccf36c7b51f","0x09d3439905064fa9","0x1b58eef59ae8dd77","0x733d88d510758e4c","0x5d569ce637dbfff2","0xefcb68b875de9d41","0x6be7b0bbfda0f45c","0x64fd9f2b91711d6a","0xca494d0842e7526f","0x4cdda49a4af9b226","0xc5b03521fea591ed","0x1be20f32bb6d1588","0x22cd567c8179694c","0x236dfb35ab06c360","0x1bea973f55fa0f4b","0xb1e470a0c70ab779","0x9bef976bbe759890","0x3226c06023c47ab9","0x68ab7b2813641cb5","0x5eea3b369e9928f0","0x972249609347facc","0x4e0c2b47f4695903","0x4d0fdd0f0e94e6ea","0x8c9394d98984c74e","0x79041a8798616bc5","0x70ae61916bb0279b","0x729b8ac5b26601e6","0x23b26f2ac745a402","0xdacf052a9acf902e","0xf205d1d0d891ef17","0x69dcde967e4d2387","0x00348e7b99542fdb","0xcc6b36c3a5b48e1a","0xa13878c2c4448237","0x27e48acbb19eb221","0x63aa95c64aa3bac4","0x7eb6cca5529f6748","0xc4321af52af01066","0x91c8900e53ed7c9e","0xe9898c57b30f93dd","0xafe3b82b7b175b18","0x7fafe697bd01dcc8","0xc842064525c488d9","0xc775233ba3907b9f","0xf0447b8415d3a090","0xf0ce9f95a47a05e5","0x6d2a1f1370bd26c3","0xef8ab7ac52a9f2a9","0x475888b64c7dd728","0x48547dd0c542a572","0x1dcb126da1687dfe","0x7a4374be6d980ba7","0x05c636d1293c53b9","0x0944d3043801ae6b","0x367a3617438336bd","0x3da4c0e3d75cc49b","0x17fd2be88861e535","0xbd1098cd82111feb","0x7caa0df577902117","0xe9c031847f3cbe0b","0xd5e6e96cfd4333dd","0x5c733a81e4045998","0xb26e94e2e37ab785","0x7241d7039ad11d5e","0x049017b5ab8f47a3","0x5e51c1bb146804c5","0x3f96ca883eb96417","0x1d7538b4e45420c7","0x25d87f99b23d9045","0x85b3b01c72268f4e","0x2d2a5130ef5be27c","0x98fc7f296952a899","0x79ae0169511026ec","0x7f5285e330d9c4a3","0x050c6464d8626add","0x3cb6f22c1497b3df","0x51bbc7c489e55c08","0x13a37da64a625b5b","0x5debfcee0d7a696f","0x609acacb2e27bbe3","0x94038b1ada5c0239","0x6b3fde8294d9a6a7","0x3edc16e9bfc39061","0x54bb67353107ce5b","0xb8c0127b310b1e4f","0x67ce81779a021ce1","0xde75e2b379666a86","0xdd9fe100e62876b0","0x9a18ef68f1933799","0x397a11873baff118","0x54422066b5e40b24","0x2a52ef8dda2f1d1d","0x135c07a552c93201","0x936a3d24ad127acc","0x99fbcb20a747b8e6","0xe527dd5beb67d5cc","0xa7030b870700bdd7","0xf17a6d09438c4e54","0x1b27a3f8c691b531","0xae771c55cec069e0","0x25367d95715f9d7c","0x521f53020f6ea332","0xd20603a0c0facafa","0x9b6824d4352f2d65","0xdf7b09fd60929781","0x42760f2c85f0c7ef","0x56dde1326d4f0ac5","0x862aee58f7cd81f1","0xb88b52e0b1cf499b","0xbd3ed066c6910e1d","0xf7bde976da933801","0x2ee2d0a88a4fa6b5","0x8342d57dc7238dfe","0xc00f509a1760cb6b","0x7d57c0a784dd779b","0x07eead26f2d10327","0x4b2c90e7274193e3","0x2492fa5953ebe9a9","0x2669b3149ca7c9d8","0x408b867a113c5d55","0x3faf32c087e0ad66","0x455f0a93035e264b","0xc706fae92ec2b07a","0x0ab45257d3e8e6ec","0x96926a1e8dbeed4b","0x605aadad718b6a52","0x7c62cd487731dcd5","0xadb07bb028c059fd","0xf4625018f408b506","0x4c3d296fdf7793f1","0xc1e0e94bd6e292f8","0x4c3cb547ce140f72","0x74c9a5a6ae260a1d","0xaa021c15dafed13f","0x5a03ceb174a1573e","0x1060a8a726c1c782","0x7fba3e967bd06127","0x9016af35ed270edc","0x7e26e6aa08e76f7b","0x6ce35ad35361cf07","0xb498f3f460f39be2","0x5ba4399d0ea4f798","0xafe4ad250a307a52","0xc7adbdd5821b4b99","0xda57c52355d371f9","0x241a3bf5697ded76","0x3225386ef3fc6d27","0x5c2c0c95aa3a18bc","0x5b25096d6f6dc4f1","0x741f18215f681cf1","0x33e0ee02e1017f7f","0x573e34bae174849f","0xdc792431c0dde1fe","0xf7e4235850fbcafa","0xdbb8af2121d9de8d","0xbba54517ba29a994","0x608c7ce533094612","0x4d50ea03f56e53ee","0x273b14e8ffa8594a","0x8893f182dc30d074","0x837b91c895e9e794","0x3181282d386519ae","0x626d665dcf56ae13","0x62b984a20d3e5577","0x6932514480ce3357","0x51fbdaecd9d9279b","0x82245f6f187fd971","0xfb6db36a2641144a","0xcda836e330916693","0xba7889e50b32efe9","0x59d9ac13cec16aa7","0x4cfc46ce7720e6f7","0x28a56ed8c230cd60","0x4964e4a8910dd089","0x44d37c4cb74a88e9","0xdd8faf192655696d","0xf4981ccc606cb2a5","0xab7a631b5eedcdb5","0x35458757a3465a33","0x1b9c287efea110c5","0xc8d950c2c5176965","0xc5adb83e8254bdc8","0x2eec67dbc48d2869","0xf9c0c1c00a78b235","0xdc1ddd682809b1cf","0x8050d44af3750b89","0x6c56f8feca97cb38","0x63d83aad27a482f2","0xf4e1029379c71dee","0x5dd4135ac67c188b","0xd1dd82a74717f23b","0xd7729e1af162026d","0xef4c0722595e493e","0x332ba7fb3b0c1639","0xe3d6443b195ebf85","0x3dc5bc81c3456466","0x94149009ea4014cc","0x589f9ccc4a36a6ad","0x6b4d8a4465343232","0x635ff153145cfb79","0x9d7741730e99432f","0x6b69bfaf3e571b46","0xaef3c7a79f5e65c6","0x8ed055fe72658550","0xc9ee8ea518ccf1b2","0x92bcaba6d30c1af6","0x597ea6d2f24bd9d1","0x3dba65bb525ae2f1","0xda6f37e1b43d66a6","0x1d4e5ec82890c070","0x641926182099a376","0xa38775d0b363f786","0x10afb0a864b0e74d","0xb0f27310d99c2164","0x7b974c994ade8665","0x60f708457a7a233d","0x44e5bd960272791a","0x30bc91fa057e625b","0xfb4b0fa17660426b","0x74bece3f4e526bf3","0xcf6d30923bd29091","0xb7f78d094c642d8a","0x487e38812a1ff9d5","0xbff367117545bfbf","0xa988f208bf51ce8e","0x48aad877aa4988aa","0x0deb280ae700df60","0x5f3356f57d95a858","0xd5c36399fafd3931","0x2c286cbeb26b85e8","0xca31b74ab47aa241","0x9f522de66c48ea9b","0x8afcf34be0c096ef","0x7a47dd5892d92435","0x67029bc53424a113","0x068674e080e39d24","0x8401c8b5edf792e2","0xf1d040a74b84666e","0x9d3a4a016ccbff95","0x2f087eb3be2bf8e6","0x63f45bdbb9943d89","0xb96ef1ac8e0834bf","0x7f02746969a75da8","0x332fd0f328201a06","0xdfa45effd14d3cfb","0xfaa8cb242c9c59d8","0x71b2a5145f8b3f80","0x12ef7c850eba2285","0xca4fccc9b2176906","0xad6fa316a6c78e39","0xee8da115b57558b6","0x76f7d1799b23315f","0x6b9587af924e60aa","0x41e2d7c967fa2b2f","0xfe9152357c895bc1","0x945df96d7aaa48a9","0xfb5e94f9e8920f35","0xadac7fed34794c3e","0x3e6b21d6a07a1bd1","0x1f80b2ed7cd49030","0x125f5a46ec48811e","0x981a865fd20658c8","0x44ed405a57323de1","0xac475e33dcd1afc3","0xae3f3b1ba8c669c0","0x61f9c9f8e4db8df6","0x20e6b646cca5f8f6","0x6ebe4791d5e57e72","0x21e960645c51dadc","0xb35a1a9cf6381b09","0x928aae738298e925","0x7f2f0fb2695184e1","0xa90b702c0dddda1f","0xb67943bb13f7a2cb","0xb321687877f0fdbf","0x6b960a1191b2a5a4","0xba99a885c8bffb51","0x269334e2946ccd83","0xa7e0839e4be4e82f","0x9776cbf315f6f759","0x040d2b7ee3815377","0x1f5b00f28fb65f7e","0x16fb5e8fd58358d4","0x16f1e37e3ec6df2d","0xaaea574a5ddd8bb5","0x64a4610e07335a35","0x9a8927512cff6613","0x0dc852df93cf1df8","0x80641a7ea72f1439","0x0508d0477b8ca91d","0x0c395e2c11bd492c","0xbbaf112f62be46a3","0x8a263eb4716b31b4","0x0730fc8122ebbb2a","0x86f88f4822bf6fc8","0x07a1d8b07cce22de","0x76bc45601307264d","0x536e68893035bd32","0x601fb5f28b228ea6","0x9bc27113b450cc25","0x8030fa0d2d2697f5","0xdfcabe4d42da5670","0x6b087fdb06c2bbff","0x882a2184184cb049","0x68758e0f7e4babfb","0x28aff5c99c369bbc","0xca8b3b67c5adc672","0x4e79f957bca2d7f8","0x1d99d7760b6bb98b","0xe521cf755bb4fbd2","0x1d351925b71da4b8","0x491319a52ed4409a","0x597df745b1ffb0e5","0x37fe61d0a298eddd","0xd6c40543a326c77f","0xb69542ff10936fdc","0xe1f83965649efc25","0x29b4003f6e7241ba","0x24fbf610acf75242","0x4cd5629d0b789e94","0xfe3a3da5fcab81a3","0xf1db64b4cb4a1fd8","0x7de7e90d0b39e59b","0x457b5a07c6dac901","0x36ed3f3cec0cbaba","0xa54d22218070fd5a","0x29d552eb4f446bb9","0xafdd05e33136694d","0x1717c40b1dfce9cb","0x52cb78020ce9b83f","0x1de2631e8a687e34","0xc0f370c8ebe54523","0xf962d0737a7831b9","0x326644d2478bef90","0xc858c29b8cce0315","0x1c1807fa063327c6","0xe7c2f865d712f9f0","0x2d2a5426ae423120","0x5e38fed6e0a2c6fa","0x5a75fb7ac3056db6","0x26bb3ecaf0bf1f9a","0x1fd49b71141fc6d6","0xa125313586a2d838","0x7d4a6b3f9acacef4","0x4d9427b67f3f99ec","0xce7b16abb078fa23","0x8bbc3a1396f52c19","0xbf9a63cbd1a62d7f","0xe77268646ae9b13b","0x3e9dfe032ea6e21d","0x83731b15275f7215","0x7ffd0cf673b6432d","0x713c87ae1890230b","0x896e19631bf7077b","0x9e13b08d9748499e","0xc1dfdc4497a54aed","0x78fb048d8e8afbc8","0x3a20a2562691edcf","0xa1377c3a5a3a9cbd","0x3ed0e80d39197926","0x866c9768e9349785","0x908a227342f60e21","0x8c239ca073770dc8","0x0d8c27f31a9d327d","0x7ecc3598c5ded811","0x0a8d35bd9f78f6f0","0x96f2eb821c0ac7cc","0x1f98c9d3ba7aee6a","0x9ff9978ad3a73efa","0x7aa3fc4935d5ca8b","0x826195139eee913a","0x5a70a255caeccb8e","0x40e2ab312ea0bbe7","0xdf9c6bcf9b164046","0xc18b6c17e041d3f4","0x4ef8087a166404c9","0xc11728d4d2896acb","0xe33b57ea060eb676","0x401009e475cac359","0xc0e91500ca6924a8","0x173756e5dfec7e7a","0xe3a9a43ec6cbf934","0x7b87a509513598a7","0x49bf3ff11d73581d","0xe42246b774000d99","0xbe57c9df29e6af92","0xb5ffb9fd2c5bdf62","0x0f93b596d2884447","0x8979d7b782ab3006","0xbb132bab2a03221a","0x839f08ca5374d77d","0xacbbe22f1d474a21","0x850183a51998aac4","0x11e6f46642d7f8b4","0x01c9996c60246b5b","0x32001c3b14554ab5","0x765de87b2656a908","0x4f0475e51b12580d","0xb8eecb96df363c63","0x9606455a6b1d655a","0x94516a6fbbc63275","0xebc8216e3fdb05f7","0xaa6c6d2ee21f9092","0xcc2a3499fb8df92a","0x2d08c8c34444c443","0x9135acf8a472b2ee","0xc768c5c92624b69b","0xa84036bc6e5f1053","0x23e0c2c7ab37f191","0xe642dc1651d19047","0xda4bbe852804395f","0x437514e6a6edbe0d","0x49f86e32c8b744fd","0xe2473d06d17c813e","0x508ccb72fe344315","0x7b977f713fa8539b","0x3e7f1b0525f80eff","0x2b1953e44bbf52f9","0xfbb25cdc6495a37c","0xedea0697c27cdc14","0x5f53e9d1932ca3ef","0x8b1ec2cd2b44f7cc","0xb1eddf9e24533708","0x21fc87d2d3e6eb4c","0x30322cba9b92de53","0xa1b836a2a5a09685","0xf69623d7e7879ecb","0xd967ed7f75863260","0x641f2ddfb7735538","0x94ccfe402de6b594","0xeb2ddda940083897","0x93c7eb080255d5eb","0x4662bb9c94f62c46","0x738f5a46fc566716","0x1e5c935f149cffd1","0x63ca44fc8472b86a","0xe68b760d924899bb","0x9e2ff7b7a205a08c","0xd1b644c47eff8559","0x4cfcfb1cc02ff35e","0xbabb45f13a7e2081","0x7cba277375566338","0x431b7d31aa1e3e59","0x9851da39f2f51329","0x791a725c56065de4","0x69e0409d89577cab","0x119d118cc7cd1f80","0xc4507a1b32111f50","0xcd05ca81d0098833","0xf7b317f90e22dfa5","0xbbad8c74e033edc8","0xbb0e647e1a3c749f","0x25ecd71dcf32817d","0xb5c8072829377859","0xe9d529ebff547edf","0x8b65bd0641fa922c","0x005c7b8577cb90d5","0xfce5e5f6bfa35e3c","0xada1e8cc81ef971b","0xc2399e3f171248be","0xb4d78c3f1615fbab","0x91bb94f9645c9e29","0x62d14aa82fc617b4","0xc5be274048005b17","0x7cdf4bdc5a1ecd19","0x6bbf1d3444250510","0xa38eaf6ada346502","0x07eafcdef5dbce31","0x73ad49f513ab4549","0x47e90789fc870f30","0xbdb5e4bab63a2567","0xcd8f61a7a037d1c9","0xfcd95b04e4f02509","0x5ed35056d99ea7f1","0x10fd3dbf9daeca32","0xb206b86fdb6a2ac4","0x63cf28d6f2b733c8","0x261256d58a201098","0x5ab9e8a4dfbd5bb7","0x77aab0f6113db9c9","0x8440fe36470e9d79","0x6f1f0dd671d0fd3c","0x3422daa9deb1b6e3","0x1bfdb7885b7657cd","0xbcb5c9b457070e72","0x8ef1adae53411268","0x5818fcf9421d4132","0xa1bf6e1d86227854","0x3861e3cf3420ec41","0xd6c26a28a4fe4759","0xdf456ed20bd6dee7","0x7d44b023094cab32","0x8ce3dbadb251b90e","0x6a7f5a720a089652","0xb22861d0045b7c0e","0x0badd7ee9ad87cf3","0x2f5b4f74c4ea4625","0x46436dcef275abe5","0x9942a2f69a46a552","0x88c2e7021ee7c41e","0x8db1020323e54b6e","0xbf7266463728906f","0x77b2d26526831321","0xeece7aae8fe6d7bc","0x99bf5be2f41f1712","0x497e43dd9e98577f","0x4a97887659966e2e","0x870b50be6c104ee3","0xb8ee338b65e29be0","0xf193f4867d1a0701","0x524f2cedbe29c2a4","0x1f42ac7a7ab73802","0x434524acc213baf7","0xf1e525b55187db40","0xadebbddfb3596429","0xadfe6da35567f029","0x5c14ea96b7dbd4e5","0x9b8171d3e64619c6","0xcbb6ebecb7a96224","0xa397af2a34c870e4","0x5bbfb8482a0cf7e4","0x24c2868d151171e5","0xe49f053b813ce536","0x8b7e56f10107271f","0xd1ec1dc5cfdc6161","0x620410b8bb974c48","0x03abe39aeaa6f2db","0xba71da0eb627696b","0xe819c3bc3db50fab","0x61be6cd7a35187a3","0x17ca955e330efc20","0x9a583ff4a2f25c16","0x6828ed0826149a51","0xb5df077a738ccc74","0x93b73107cc042882","0x661056fc4e5c4eab","0xe371ef3c01c45268","0x188d708d5d0ec880","0x0bc0de8a8541c85e","0x7c805a4d013a0717","0x5b5db1ef7b5866d9","0xeb2ea5095bc14645","0x9845753143c94200","0x762f77b18ea3f142","0x37ce8d45975ed74f","0xbf15a17a2ceba02e","0x0488c2af0bc51dfe","0x09a8699339dbd77a","0x6fc1b9014fd4ebee","0x826bb369ca5c4430","0xc6a90b111ed50f7d","0x649b267f03304341","0xdca947e83d82c293","0x2315d57bac9cf13f","0xa2075f6b511fd7c5","0x791d73840e0c0c8b","0x2cc6101ae801f3b5","0xc6962038f2db0e95","0x594de5b15df2ae93","0x7f36d3bfed48d028","0xc9ea926ab34cd295","0x805cab5a73cb77d2","0x73560ef3ea1c239c","0x2b98d17e6ed4338b","0xd1f29e0d1b92ef17","0x7d06174111fcb413","0x7a35b211cb05cb66","0x1d16edce7290c443","0x81419fdb4d995c6f","0xfc802f69224549c4","0x4f6d91844de2eecc","0x2be8e19ca68b1de2","0xeb9371fa3e387702","0xb71feebfb11f33d3","0xc57367d9b9a15f92","0x3886ba9554d782fa","0x3efdacc81ce42d26","0x2d84b59945038e2c","0xb50a295701cce32e","0xf6812d82b7a0dce5","0x14aee4ef3b2538cf","0x4b2aa22135102e8c","0xcb20c0c3ddf9e601","0x9bee9aa6ce7544db","0x0ebef1b90974a874","0x5b684a0ea1273196","0xd64041ab1ffa38dd","0x7c999e094a3ab55f","0x76c584aab35e2bcf","0x799d8ca07c139180","0x73f58bb6235c7441","0x3b9547ff265a2850","0x208f5a65dfa0619c","0xc0606778b2119e43","0xba3e8289542cdebc","0xc69a9b41342fd8fb","0xc8ce57d66a6e5a8b","0xece3df1db1ec88df","0xddeb18ce0b9d3847","0xa5749a91c1b30aa1","0xb12e86a136ee16fe","0xc6bc0687a985b098","0x3aa59b8033b0d263","0x290fec6fffa68e93","0x32a51800d9c94c2f","0x285080b488ff82ab","0xd7cce695f25f7bb0","0x2ffe13e86f0e36cb","0xd6200fdb3e92aa10","0x3907e3a0a0c4d79d","0x8471aabc13441e80","0x1f4ae74f4dcdc955","0x2163d91cce70fa7a","0x48e0e80145e8dd57","0x17f502bc3faead01","0xce1ecb723209f016","0x25ec7a6f6873ce55","0x967a450e985be07a","0x014738e0b9ce5315","0xd10a30a8bc589bb0","0xfca57191166f7340","0x55132ea310297661","0xf7acbcb281e97fb7","0x1b97d44fd42ff510","0xae00c61be81a633c","0xbf4fbffbb7e14ccc","0xfd603985af5b3b52","0xfaee444527662671","0xe385f902e84bc8fa","0x38f8e31b09fd8043","0xff904116a09263a0","0x6be95f7981c3a797","0xeba7113a0be42764","0x212aa68ef807f066","0xeba33fd2586e8bcf","0x8536e8a854669e01","0x6e4403ec081773d3","0x696c6cf9e79e94f0","0xde9c278aaaf65f85","0x44c05651a9edb048","0xb3f701945a7eb1c1","0x5075c645f625860a","0x5d52a6079aae21eb","0x4dfe48861d62ee9a","0xaa5e68cddb062cf1","0x832d7fc57036c4c3","0xb5557e676f8240ad","0x48a5b7f99a71e4a6","0xa4548038ec54de3c","0x345314e47489f1a5","0x82cb2c0ac6cc13b6","0xc6bb043ac3ece966","0xe6a98b5b3a1c104f","0x518774a64be6ed9f","0xd15701435a5fb558","0x03396ca412029834","0xd3baa05a2beb5773","0x0088ca216b878f01","0x9e6010ce6f27aa01","0xd5bbbfe1b45bacff","0xc60ff155049d8676","0xd206d4b287780ebc","0x19252f0e08da6d63","0x835386020d857956","0xef3a99007aaae4e8","0xb035c6d8dda259ad","0xa5cad0a18a8f2cec","0xb63f4ff1f78befcc","0xf4bb2d9a5f94e196","0x86e281d4b65223b8","0x584fc78019075fd8","0x9c7ab8155a75edd5","0x371b19bba1a0497a","0x3f6a1c56c1701e0f","0xd666251db3613b1c","0xa8001e28a1314000","0xf88ee2432bf5f047","0xa4c9446f849324b3","0x964cc885de7cf771","0xe000606ea5ed6b21","0x143f43979b7b9a31","0x75f1dc3c62d71b0e","0xd58bb0a451a6e4ae","0xa35469cf2c27842d","0x22f80f7f6f39711c","0x078420d6eda32353","0xbbb6b09812d9dcd2","0xcaefd43547c77b22","0x665588e08fc12834","0xda7c8e1cce1face8","0xceecfe0767cfce74","0x9c08a0df4823a7a4","0xb991cfe3ca01d701","0xccedfbc81c42ec58","0xaebc02ce5cf7530d","0xf6dde0c4960a6626","0x02d9a88ca9597f0b","0x29738206baaaa41b","0x8e5a1b7b11991cb1","0x378946de9a4dbdfe","0x41cd076fdf7b3418","0x69ec14b3f45e9206","0x5e2663b5be990beb","0xf2ca3ef5dc62211f","0xf5041d8ee77c66a6","0x9eee1ce63f831b35","0xf486957f920cffca","0x331d47374e04407c","0x498b2dff77193236","0xb20600c63e019f75","0xd5c2be13d6b7be97","0xea5afa3de51cf9cf","0x37534710c11a11c6","0xcf5ed9d84c301d47","0xba5b07cbe9b22b55","0x02793571d4454530","0xb8d67b7f0e31b725","0x182ab2174f0de9bc","0xabf4abc25f755dbd","0xe0e412f9c6d4490a","0xd79af63738c440c1","0xced5da2e201e0353","0x56e74c4ed4653bc8","0x882462794ce95006","0xd24bcc44a0968ca3","0xfc4cecb9b31bde19","0x073adf9bf303f66c","0x71e5285a2419f3bc","0xc603689fca3e9b03","0x1b073be4d257fd38","0xa637996404a94f26","0x157972aa422c37ad","0xba4a54b39fda144c","0x98c1cae5ca7546f2","0x4f4d4322e9d50136","0xb960d54720ee3d4a","0x0c6310fc0ddf6abc","0x3139ce611378e812","0xe5b82f9aa51a022d","0x9bd6664ab30718fa","0xb41e4499274c742b","0xabff1c542279b650","0x1835e647e763530a","0xada0cdd8c88564b8","0x87b57f8241023ab0","0xc1ed551d1397eb74","0xc1d1ef28ec996a91","0xd1e74a30501c9544","0x44577f4b02823ec4","0x072c51a71a9c2a5c","0x00bbec9ace2f1be2","0xaa0e4d34f9e7c143","0xac526218730ecc81","0xaf1b663e7802700f","0xdbf7aafd4f1a00dd","0x6b2600fbeae9eafd","0x38b9a05a87967772","0x14216188e03557c6","0xeb94cb885cf08753","0xceb09ab9bfd1e1f4","0xcdcbb61ef5d5e2a7","0xc85b9994b8e33ba2","0xa28bf92de5c744d3","0xbbd159e910f4e09a","0xceea562d9a465c9a","0x1f79ac5a8c11173d","0x4d686cdc363e5331","0xaed6f260fd72c5b4","0x53e990ed1188bd74","0xa62b22faa210b849","0x664723059dfcee50","0x07c193e68405e553","0x0a8f581cc2744287","0xb77a40a483a377ec","0x503f7a2608e5bba8","0xc612569ec89f258a","0x151c0475c3257e72","0x71c98e370a607363","0x87a6c74f0875a357","0xa7aacfb49873fb5b","0xbec3949f2e491d4e","0xe2b407a3899ff7e0","0x80caa3fcfaa94b7c","0xc2ff9f351713e883","0xbbf82db456e8aff9","0xded9544849fb5604","0xba0a0b5ee9c80786","0xa4a9c01cc027853b","0x2c2d7e4f7c10bed2","0xafaaa635028f6f63","0xf05e86c33737fb61","0x2e25a1ba0924a9d3","0x02aab71db517e640","0x27cdd132ae8409ce","0x926f96e16eb67ea5","0xb65cc900097a6665","0x00b3205405c573bb","0x6f0a948ab74aaf41","0x421d5152763ca7b8","0x837e2d16088f9cad","0xd1637038d4d90868","0x4ed472f8abb752e6","0x401476d3512a9c37","0x1fb37e2614b8b694","0xa9a434e4910210f6","0xe6ba26a38f19c864","0xa6ba0bcd624c5e70","0x91473e2e868db7db","0x6f831ab169f9b9ce","0x332d9dfed5234394","0xbc9fd8cccca1f0c1","0x8d890af7f7714ed6","0xc84d7ba5914c2080","0x210f53cce049e62a","0xb40cc9706411fcd5","0x8c09b705fa067587","0x10123e2f05d55f86","0x587d4583239d42e1","0x65fa7e98721630aa","0x6369a6df28f6d4de","0x7d52714a76d80279","0x6ee95e14801eb706","0x19bb0c0cf563837a","0xfe404d5369e2de23","0xff75708526752580","0x86c1b98fc70cd9c7","0xf9a04bd219b05bf3","0x232e54f20104fc20","0x70b349e6c298f6bb","0xfb8e5c2dc3621727","0xd8915279efaf6261","0xf810731735282b70","0x446cdbb4647793f8","0x3ce18a7d520a34dc","0xc658fcedd0cdb9a5","0xe0ee3a217f2c108e","0xdb93cdce2bf1ff1d","0x77a4149f3c306720","0x9d779a3aa5227c26","0xce379d8bfd30322f","0x3a518b1c1b7048d4","0xd461fc25f709caf4","0x1aceddcb4e7f2bd6","0x942982a5ad61424c","0x3cb745802e53807c","0x752db6b9aa9a3c5d","0x4c4404e0b1f67160","0xad3b1d4129484872","0xdc24e81002f5c3bc","0xa30cf40f45d8adf7","0x84e66f5003fd61a6","0x2a62e97d8eef6f2b","0x764559f94ca54f08","0xdec4dfb0529b6b78","0xd2778eef63bb45a9","0xb2481b0c35a95715","0xe357fec6800fad92","0x0d2c12b59df2de1a","0x6fc959e526e07751","0xb882f2131d90def7","0x54dc73ae8caae407","0x3e4550d806893f9b","0x7a3552f005fa2bf4","0x47a7d6f017ffbe7f","0x020843fd90109518","0x02de84fd58cbf2da","0xa699d564a72e76fb","0x649276eccb704c4c","0x8d5c42c1c2d91caa","0xcda460c9fcc0688c","0xb0ef6acd235727d0","0xc52dcf870dd3c804","0xafa61879ad525b78","0x238dbf7c8f326b76","0x96ce29b6db3e6679","0x33478c033b99aca8","0x70b46cf5e15b55e8","0x2d081113fb479885","0x4295846628ef9ce2","0xa2f0b1c626bf02e7","0x87550ed7e38ad861","0x3661721d61192cbe","0x75d5079868226af0","0xcacbe6dbd6a412ea","0x6e3d35171bc60923","0x075f62f966f23616","0xbd9e370d401835f2","0x635f44c0ca33fde5","0xb82a7a583c34cd5f","0x67e653ac03c60497","0xd00689753593fe55","0xdeae0c62cac12064","0x4d547abf50ef2636","0xedd0b8d795f78396","0xf763d735faa4090a","0x1fbeda24026b81b3","0xc0f0d11d1860f95d","0x1c501f4fcef35215","0x986265cadf942272","0xbe7480acfb73213c","0x6bb5499d8a817a78","0x09466d05412621dc","0xf75333776bafd4ca","0x86f2e12abfa19773","0x426573a0b9c82c05","0xc7c107a75c921bee","0x6388793cefc10e8d","0xa08abc6b6fdc5acc","0x5c95084cbd2623c8","0xda39f1140a8c3d66","0x3bafd5177b661132","0x2f47184ddfa99044","0xbddcb58c8b580ef6","0xb5cdabe38e287dd7","0xf288409416963658","0x0156d50fc6eaaae1","0x1d5241a44d66f79b","0x8decdd9ef616fc56","0xed83530f17acfe1c","0xfb0792b1990dc5cc","0x517b41b90cf408b7","0x42d25f2555c974f4","0x71be8e20f03645c5","0x6e4510425f8a2690","0x2f31e2d938089502","0x24d4b15a5d48bad2","0x764a18e0faa784ff","0x5f8028557800f1fc","0x850d453af778706e","0xbfe9163adb90b6ab","0x77e0242dda179cb6","0x154a5399979799c5","0xcd35b912de8edb19","0x4e1ff2eec6949eda","0x8072a699542f9ab0","0x8b2f29bd9d7d766d","0xa490c5acde7adab8","0xf561b80749d075ea","0x819a62ff707f9020","0xfa1da26c94c668b8","0x6940ff66233ac545","0xb77aaf01e8e6ac9b","0x97dd4d724c1d4534","0xbee7f4f4429d4521","0x97c8dd3b65336971","0x1c4063563f1624b4","0xcb9f1335947921ac","0x4fb48659ee7e5621","0x2014340b50fa3d72","0x6e814d944b300307","0x82277c350c5b0c23","0x06678791ffcc6d75","0xc6f77496c989b4b8","0xb9af33c314a6834a","0xb6e50ba7e00c91e2","0xdfe5dbe14b20aa49","0xdab1025ffdaa04f6","0xe719eec89e73bb7d","0x9849083dbfde550a","0x69f45db41cf4df6e","0xa6c0495a5bcae99c","0x3e82fce3a6333a32","0x173990c1a5608954","0x03c95ecf4073e653","0xcbef585823be83be","0x7dd4163a43585290","0x08051e855dbc5945","0x82f4937e75958e98","0x07653c1f55a01d09","0x7b93eed8e16e4a04","0xd4c881a9e2bd65de","0x330d108bcfad33db","0x2f6e9d797b9c5c52","0xd3d7647b36f2581f","0x9a0c8861f815bdff","0xd7c2a7927d31a6ee","0x0602496b24eef0e8","0xda8c3158273dfbb5","0xf0f73842e333539a","0x2517c4c5cb141a30","0xc6da413036e68168","0x917b35870ad5f102","0x32c0f6a8e83022da","0x4dd3487809f4abd1","0x44aa2cfa186022d9","0x5adb9c783f2199c2","0xf52e059e47240b1b","0xaf1d7fe5be8d8a28","0xcb3557880ea4acd5","0x962c11c2bbb3b899","0x5f72d16cd3ed7728","0x6791488a7fcce55c","0xcda72075b6b9eb68","0xcc88ba024aa7ee3a","0x2b3665eee9d6735d","0x9ad8d7a77b08d003","0x62ab9f34f01ea003","0x5d99ed861ac37acb","0x53e79afa795942b4","0x905c20487ce9aed3","0x86c758afb58980f2","0xc0958d3d862b211c","0x20d16acd92c4ae74","0x3c834e9110e758c2","0x645a2e6624970552","0xc5977839a68eead3","0x80cc1b43fa183b9c","0x850dc90e444fd580","0xb62f30f32c69396a","0x755caef091e1291e","0x067901880176e44a","0x1ad8e3428f140649","0x037df9be34165510","0xac4b05e5bb2f63d7","0xfdc624271e3363e2","0x8f886b76aaf2750b","0xbccd08821db8086a","0x09ec1de8c48d4c12","0x11ad7c1f8156d78a","0xe373e6593461e2b7","0x6ad18eb503756ec4","0x49044294bd5a9cfc","0xc4959bed3711fa95","0x1bccac9104537b52","0x31e39c3347328b1b","0xa682b4153d949d77","0xe902f44deaf194e0","0x488ef3caad0fbbad","0xb40376a47eacccf1","0xa8c673c378696147","0x8e0bd3ce7cdd7498","0x6d772e9b43331e00","0x5b1a70aaaad27773","0xe8e8a298633b04b3","0x2a3f52dec4ff95e3","0xc733ee8e1bd4755c","0x85dafcab31cb829f","0xc70a66946623130e","0x030a7c9f370bbebd","0x602b979ac17e3ae1","0xa6b86bc4e184f45c","0x5da029973e98c7c1","0x13c7dead829e84ea","0xf806e16fc178cf64","0x36e4326e9fd0de38","0x22a1dc3a0a35b76c","0xe777f05ac930d962","0xa53242d2405f3c78","0xf85dfd0aaefa5dc9","0x682d9a58b84538f9","0x60181c0c74ee1280","0xac68309092e85933","0xfb3648eaf27a2f48","0xfdf2a6579f9dfdd0","0x4c902a8a752218db","0xb922510393312c02","0x1b5735920944fc23","0xb302b9e605dfe440","0x86f7efe49f1765a2","0x2e24dc408da61d02","0x0ac9b0f86e6398e5","0x367f88a75233b00e","0x583db4d9afc6cca5","0x2c2c7c9f10732c33","0x1b064280b095151f","0x374f330dbb447225","0x6dbb44ee7da69442","0xa232afe6346dc463","0x24d783d853012dad","0x0ea349c3a34a83c3","0x84a15ac965c5f93d","0x83e51424eb7edc1b","0x21713e42b9924eb4","0xeb54c6a31c9c20e6","0x4b8faf875654dc78","0x1d1e6fc78a670f14","0x33f899a4b6261ac4","0x394e87dd99f919c8","0x53f4c6866aa7fb00","0x4488934ad620056d","0x3b94c43ef58cc62c","0x04a2d15700f0bf0e","0x38188af04666415c","0xb54c98e6d681dc5e","0xbcedc589eaeffbf6","0x57e0cfc58a6654ec","0xa41cbe321afb0f48","0x266ef4b50b022543","0x75e215aeb3cece08","0xaa238637371767c5","0x7a78a6ceb48fea52","0x7f22caf0dcac567f","0x6e0a9874adfa4e1f","0x57488321019146aa","0x70b768f9a9666ab8","0xa8a18a56a5495a87","0xdc4af54a2aeb74ce","0xf324aebb51da8305","0x30de0c24d685bad6","0x75e6f7890967e4c5","0x59687431d629e6fd","0xa32980a93a909ce0","0x847f86274b1acaa0","0xb9c5e9604d40dec0","0xd040330166e2c913","0x3d72bb1ee86d9755","0x41d6f23b2ae30950","0xbd54ef98b06c07f9","0x9efe79beaaebc9a5","0x8377cc02fd600ca4","0xcf57a1692a907890","0x617a8f93f38c90a7","0x32f821928f59c2ac","0xd3abe00493376174","0x4bb4f26f1f3fad73","0xbe2747deeda64a14","0xfa21ff22d9b78fdb","0xf25ede182f4d24a4","0xa9ec3e37cd48f89a","0xa4f091fe287c26f5","0x15ec9acf630e0212","0x2529828e03319812","0xbf960ecf8ab09ce1","0x7e23387f7420aa6c","0x3b06c8512ea717ad","0xa402d7bdd53be9f4","0x8c60df4e30806ef1","0x82aff77c10a11455","0x17f82b833d1d21c4","0x6f602b0b559b913c","0xcc2439893ad96374","0x1259ad6e1ff43365","0xef412af6a5db638d","0x6026a181656e0c89","0x824fc5d41151d8ad","0x01a3913e1acbaa8f","0xc771ebd190397d6a","0xd10210d1f04ca2e7","0xad34ff2f5cc8046d","0xa007155a669b864f","0x53cc1f6b0024c128","0x6c91043b4937260a","0xa9b94aae31d905f5","0x446da6862380135b","0xebfb319d396e9280","0x187c2dda0b3684e9","0xb6be4730e8c79369","0x1f80d4c5f6cc75d5","0x254092a681931869","0x9e8bda786a3949be","0xb3e1580f85058ea6","0x7ea98bd152654005","0x4687ad047b3ac057","0x2dbebe7f10abd72d","0xc33709208669524c","0x01bacc9e2afdae57","0x4dd9fbf1f0b09f2f","0x9c334047f4ce4b24","0xa01e61bf457dac79","0x296a60b40372bbc0","0xefb149837843dc5b","0x0b00b05b7db72b95","0xd10375a90f330aec","0xc6beb844751260ec","0x9d4290b6abbd4198","0xfe6cf32ef1bfa6ec","0x590e5c8b84e396a6","0xbb347c9f4ba3f58c","0xfc3b12f3fedfc1d0","0x0a06dbc7fd56e028","0xd0de2c4028febdb3","0xd274a965fcade8d4","0x86f4ac8ace3a1f92","0x1cfb64cfa493f440","0xcfc1fffbaedc0283","0x0ee3f962199fd1da","0x699ef83c98eb0dda","0xad0ba4a94d3ce337","0x7d4d8da6490098e0","0x80cd381661a46153","0x7d2890ec92782e55","0x84a63bcf1f571426","0x0c1d11aea3453cc7","0xc46a350969369e40","0xec09d51b5459c676","0xef7f8b9d2c66a1cb","0x0631e6eac21af493","0x2681ce5bbd2b27d5","0x1afe3851c9665618","0x124a39ba008c51cb","0x5fb328b709f24d87","0x11ba9546d650ac27","0xcd0770916c1c1e7d","0xf8a61453a08b54c8","0xf46d340188557cf8","0x5fe4e11cea6f3890","0xb5956e8712303336","0x42496b6ca0a5b0c2","0x15d5ecf493770f93","0x1b9d7ab8da1fb238","0xefbfd296e6d59029","0xa93c88252585316c","0x1e4ad1f801d1de51","0x80695f2d4e4127c2","0x2e08742a91270525","0xe9c80c02d11d3d27","0x7514f35f83204f08","0x78ea85700fd27e6b","0x431f4ecf7aef72bf","0xb04c1d6c04404cca","0x3f46ba1b2a9f9d96","0x1be311e36abf664c","0x5059af00fe18ca2d","0x375c11f097d2adae","0x43998f66a12bc5b0","0x8da3c7f57295f10d","0x7ff3e489494168b4","0xe2170fd00a786b64","0x7dcffe603e7e98a8","0xde4de7329e183ce9","0xfb968eecc686241b","0x78baa2040b93902d","0x917a78bc2eaec554","0x763e71ab34610d09","0x2e9fbd8dd8f7f53c","0x36b7a869fe804f25","0x702bb5972c7cc0e1","0x2844e24c416b2fd0","0xb9716b085db1e896","0x0ca14fecaeca25d7","0x8992bd14da2b7ad7","0x10df7ff3b1ecd185","0xfcf9c297c53f0379","0xf8bf681a7227c7c3","0x0838dee9db5504cf","0x4d0975c6f86d64f6","0x4f09472f93219428","0x6d8c1a8547a586a0","0x893cf40b00704dfc","0x8685dce1ce724af2","0x8a8f9670a2758ffe","0x18e0d162c2f6dec3","0x6c6d9c180d27649e","0xde58008986aaff95","0xd9c1289725c1f31f","0x0295140afb61ca9d","0xf41b1984d566b334","0x179fe60d31e9b880","0x454eeb21580da500","0x856e46a9046e2722","0xcb9dca970200ff81","0x1110e4574dd9341b","0x5330e8f44b7e2cef","0x49f181cd8ce89f87","0x778f37ae0219be1c","0xe652700062de4e07","0x1c9d756432470075","0xb12e1e49f4837c57","0xf979366c415f2a14","0xf231d072322cd5dd","0x28341a4e5760b589","0xcab63533bed55a8a","0x44be4adc63f40055","0xc20abdc1b787c676","0xed59c1727252a236","0x85a9260a15cc77dc","0x54ae4f653d27f02a","0xc2033b9809724540","0xec4e49cbfc0b8056","0x3ae08d8583474626","0x0c45f8a6a739aad7","0x4e638889ee6efa3d","0x59099c48201e494a","0x09454455be5c9951","0xda6fc884bbcb2293","0x3252345c3074e991","0xe078a05ce80ec67b","0xeea6aa02fb981723","0x35700361cb732a78","0xa529a2a4a2c9386f","0x39d9e5fd06507176","0xb387007e1d48a01e","0x5d844404a78c8fda","0x160d9e15e01daa2c","0xedb35bcb00b97b88","0x30f34814697e0e60","0xe75150e1dba0d42e","0x0a7d0382d56dd252","0x9e7d159f7ca53ade","0xa43a378c59c9b395","0x86060d8a8d307ee8","0x98f5feb59f022eeb","0xa504312986c9aa84","0x3f173ce5d94b2792","0x0e29f8e6e87eccb5","0x95c2e60fc4d4c755","0x75c652f919fe7e3e","0xefbdd166994b03ef","0x49682a8d3aa63cd3","0xdaf82d5caba93839","0x10d02f982c35fac0","0xa37b6cffd7100d12","0x60313d73a5cb58c4","0x627050cd1cd3cb2b","0xc54a872119e5f5ac","0xbf654637e84372e1","0x2c82d5a326561514","0x8e6ee73d5bee2049","0xdf57626a0e727980","0x4b6166da322a3f1f","0x0346cdc7b2035dea","0x74a584af163a499f","0xf768c9e7bb613e56","0xe3bcc5512c6e3881","0x7200963010749511","0xdb45530f53c95a00","0x66ba1044a2746c06","0xcd6f543a67a24238","0x5c792dbe5e68298a","0x3f8f30523865fd0f","0x3c69adb6791af7a9","0xb1b917a117925bf4","0x416cfb0eaaf92474","0x641b877d4b2d2c4e","0xfc20752c2645ede2","0xe6d867aa8a29bf2a","0xf154d614167de6a2","0x326372a935b71000","0xe8d505450c449640","0x03a881682b33a558","0x2e13dc691dad886d","0x8e55f2a7c435e85a","0x6b6530e35a971df6","0x57bd5af473faf175","0x0e693df0c8c6675c","0x6a675984e136c9d6","0x6fc756695673b19b","0x7ba81fc5a86790ee","0x0841562b8eb5d3c1","0xe95ecc84f668b0ea","0xa1c7085c4f897ead","0x9aac2546385e637a","0xd3e88cf92bc5a683","0xf0b90f509deb80dd","0xcce67db9f58e8825","0x63d5cdadd966fc05","0x3d6270cfb3604919","0x4f33ffe0da4b0acf","0x1a8ff88df44ada5b","0xd3cef52550510cbb","0xde7a5d411c035883","0x65951fdb6c0fb92d","0xc85516884338ff3f","0x1f14168900ad2a9d","0x0e34deee0adb4e4b","0xca5b8dee238f3cc7","0xf2b060239378e9f6","0x05bd125e31db20e9","0xb002a2fb1ea1bc4c","0x82dea0217ae35a58","0xe5f33ef22810aa48","0x0194f87bd46af750","0x312854f7f602c577","0x91c8a71809b7dd93","0x5670f22a11503bbe","0x070379f9258c186c","0x990b2f18cd0bba2d","0x80c5fd1267aac53e","0xcbd4fb1e8df5e153","0x1c9a4678db327c4b","0xf78a5b602ad77ed3","0xcfd3b54988242baf","0x3d7af180d3e22026","0x99a175dae13d8f64","0x56a008096be03b19","0xea6727654d129f59","0xce9d1e032e2a9750","0xab73b92b24c5fbd4","0x64c4d322fe2e0a6f","0x30bc16ba7b500281","0xdffe94624d4e952b","0xb047a72a9f98b10b","0xe5711dc935b34f4d","0xc3c362c841a0c932","0x570097c6ff2f8fba","0x742761f2bdb6d7c7","0xd2c455f1a0faf0cf","0x7cd6acfb8d60711c","0xef60f946026835e1","0xf7cd791fb3b1e42a","0xc4a119df47e6dc46","0x04d615f6c5caf9ed","0x19d705b15d7bbd87","0x40458c9802020bd8","0x12472aa2c11f717e","0x3c5238cb3abbe0e2","0xa6abbdfbe723663d","0x5ca440bdc1453ed0","0x9417623b641f8a33","0x2a0c50b148376132","0x2ce38c782cc886a5","0xe7d156b2bd342086","0xc682f1ed306f7633","0xbb4d39872c1f3319","0x6c345588b141e969","0xf7555b9a41824a18","0x874509f2e2657ad2","0xfc9c6bb7ae2ad515","0x90cde52a53274fc0","0x9ac3e48a63348e0b","0x0775f22ef875555c","0xd748469aff57496d","0xbcc065c160942907","0x28dc5b000a1ef594","0xb829c15dd6dc54ce","0x79f5da1718b5c5c4","0x5f865cd9be0d6d34","0x672c13ead4bee296","0x2a98fa6f5fc7146c","0x9aceae7dc341fd51","0x866b73d61de803f0","0x412f5e4dd8021109","0x7358bd283e69be7b","0xa84c220d68c2a1dd","0xbf1d8d4ae631ab0c","0x2b61e208e82ea533","0x96af8686e56d48ee","0x467831c92e6077cd","0x4ca762e912cfd31f","0x444d95258624e199","0x4c79b372d4daf2b3","0xcbdec08626d2d77d","0x21aa0293cc0ffe30","0xfa71b9159200afd3","0x4da34fca4d6ae9e3","0x05b655ecfa45cb65","0x617ee40761fc612b","0x3831cf57061238a8","0xb3fbd169bf670e56","0x6c0ebaf68852c223","0x169ece67d22021fe","0xdcd5b14c3b28a91b","0x28fd9be79afd3c8f","0x91b612d6520de8b4","0xdd769063d76df66c","0xc821cb6701d4ed83","0xdabff53309abab33","0xc55644c37b81ccd0","0x6b904c4cd165133c","0x874af9ba184a5307","0x9f37dfc7e42d0622","0x03182d334a75f9df","0xefbdc8357e06ff3f","0x700fb54dbb49324e","0x2567f0600dac766f","0x78bce8f028084228","0xdbd9db436158886d","0x364b38785eac6077","0xee53cc7be4d99270","0xb932f6cba2ab2869","0x5f4bce173e029525","0x3e14b3b6a6b04fed","0xa946bdb06f9d973b","0x1d9fe6a15b71f4be","0xae24d4ad1f256f4d","0x32612f0258e60e0f","0x11cbc4b0e6fa0ddc","0xe46c91ee54475e25","0xd62d1f64f78b1502","0xcba568d24b1dbb93","0x88cd162201111417","0xef6851dbfb74f452","0xac131cd16c04c044","0xb29495305a1acb9d","0xc249a40c66cae688","0x919b14eae19e0905","0x5f3dd0f9db504c1a","0xfef4be187ce1f748","0x36e4b604b155de87","0x0a189853c3cd7563","0x0c39186deb262d64","0x351bf5ae85aa1423","0xcd39cff641fb3d27","0xbbd29cd5e0299ee1","0x99494d0ffa18a616","0xbe8b62e6cd8d8d2f","0x496703eca067c54b","0x38b0177470895334","0x3fb0e7cd081c8f02","0x59b0e7e63eb7582d","0xd1d663c4c3a91c3d","0x39782e1fc391d308","0xa18034456b0bfe82","0x733ec0752e1c25e1","0xd12d14a98fd0017d","0x8f380516c6ae9c59","0x6fd2760e0f53f40d","0x34182f745b035910","0x4d53bf38e26110ad","0x81c9fae34e3bd048","0x1999d19f66d78b4b","0x7a6750dfcf71d686","0x3bd7c62a646f30e8","0xdfaca4691cb84356","0xd3657ab3f3191490","0x406a0cf503dcc8c0","0x65e5b3e452a7d760","0x49ecf15600312bfe","0x893ccdffdd721557","0x5b5b8d0493860608","0xba8fefbdd45b15c7","0x82fdd70c862dfdf0","0x95e6eb00906eebd9","0xd39caa6b7afa0d39","0x30c7581a52a13514","0x5a7da50130356459","0xd6040466bfacb872","0xd1fbb6a7a532ec69","0x7a9c3fd0775ff596","0x9181d12937ca7698","0xe8fb4385cdc7611f","0x59433fc850e725d6","0x6e06febf69bef113","0xec29625e66e634ce","0xae580d8394364ef5","0x16cfbeece02ab9d8","0x1c5e6ed0e816df34","0x9dc81730a5908f5d","0x11785a839ae09c5c","0xd4c751ddd3fccb36","0xb5e18eb6c88ded52","0x34e7bdb025853619","0xd90022e5e7746419","0xbbff858352e61fab","0xd026b7482fa39a1c","0xf3b20ccddc349350","0x19b38483aef759d6","0xf5d762c3381170b1","0x1afeb38b0518e70c","0x6dfbe9b646f36d4b","0xda01a1ee5a9d9769","0x675d5d15090bb577","0x51020266995f9166","0xbb887dfc8616bc18","0x9eac910e8c1f35ff","0x8376a52a9c938646","0x350d3226d07a9c1d","0x6a7dd51f684bda90","0x0d309815e516d6d1","0x2071faf1349ef59c","0x81f87c657cd1994e","0xdd2dbdb5f3d68647","0xe8deb0bf25703a62","0x774eee8e33954774","0x2c9aee2897d04d75","0xf6e936344caceb1d","0xe99c0d324d761436","0x6767a018449da40b","0x98742d160314c073","0xb242e9c159b1b33f","0x2322e5a478eebc1e","0xef470374f00d06ec","0x0fb7bc0e24f76ae4","0x1d1c2b766f314224","0x0406b95d16065ade","0x615c0324bb7b53fa","0x5b8a0d2613e95346","0xe4ab26150a1e3f4a","0x901b641ec0fe95ae","0x6fbaf37de9e3d526","0xc35aab68b42b4826","0x1d55c87b8b1cdcd2","0x5784c27d4b8608a6","0x705577ad14036e81","0xa93b294d6b7d676a","0x25f9273ab4e3a76a","0x71791be254d976c5","0x755cf2a2b74317a6","0x4555baa4673f0f05","0xc1cf5bf28f711483","0xba861e67f540f0fe","0xfbb46688cc29b721","0x89eb827d2a589062","0x9100b4bc23b52e57","0x2503a92c1cb423f0","0x52e4a4c51044195b","0x3a29c05730543446","0xfdec77341790455c","0x51eeb5f2ef1ff3f8","0xc1c53aa4d6000519","0x9837861aef0503e0","0x621deaa4503329de","0x40d7824a545a1bae","0x484bafaaf6a3e1bb","0x4d431285216d9683","0xeeccc2b90c4a53b1","0x00438124f519786d","0x2916077f5ea4dad5","0x0d132ecc39796990","0xeb5818bfcba09a62","0x86b330c065ce448f","0x6ba7d03e7b5f284e","0x13ec3f2ef161e2bc","0xb7aa8926bc57c792","0x07841aed30c19afc","0x45f4a6e84b7be30f","0x33d194eb6e387654","0xb93ad5ee5032d4c9","0x9b3181e920f3ba53","0x14ccf757c96334cd","0x94b3f755c8095653","0x1662840b4881906a","0x70c4f61c15970096","0x0cd7449010fc54fe","0xf960cd84f643d05f","0x671749d57ac695d6","0xf127c0090d8eac45","0x66983ff00dea88c6","0xa7dfd6197c69ebb8","0x9d01dc87129c539b","0xe3894f9a822cb840","0xb5a3ef569c9babc3","0x491d32e6ea68f621","0x8a9aabb0d7520345","0x7eeebe8d081e9447","0x94e236351a64e275","0xb2ef718c79f0b95d","0xab70f8a4485b4bf5","0x6a422b2c7f683784","0xcb96be7459426e3e","0xaae286df0d9d5299","0x9596355a880da60b","0x130281ebe9b1e34d","0x2c5e3bd5c7a1ddcf","0x17c57f55d6f599a5","0x7ff03a7923b0d289","0x50e89f9d79920201","0xb125db6f595a650c","0x536a62fe284fbc2f","0x1308df1b3aeff3f5","0x8b963616da329cf3","0x4ccafa9c90dbe17c","0x0d8965c06be0f693","0x8b180cde8e06363d","0xe2aa31d71d1d3d14","0x2f9605d76a776959","0xcea904b5cc76a00d","0x586b742d284165a2","0xcec85754aaf4be79","0xf99cad3a51a89855","0x7c037b0d9ad72287","0xd49f140a683bff58","0x45c8f73a14840943","0x5f195cb15884bc5f","0x15a0fd0794181be0","0x0271bc8eba4cae6e","0xe112d5f79d4ce37c","0x5b00b7d158c92ec9","0x1dbed82a39e2c2d6","0xcdff989804c3ae98","0x84006415dd2e2bf0","0x727ac942fa5fe47c","0x4e7033b0f6fa8648","0x84c459bab859a76d","0x6dff191615601b04","0x7aa296a8bcaefc73","0x6ddbc3f597aeb912","0xba5e6882a6cd5952","0x9cae4c9269260589","0x773dbe566bbc21f0","0xe344178d53ccad52","0xd635b41de3d5e4ff","0x02eb01050f74ea91","0x3eaf197c91684dcd","0x1f19af56051e187c","0x32badd4b6454edcc","0x2331ed2a98c28788","0x1c70e534441bad6b","0x872107865adaab8e","0x29fd601d3fc3479b","0x5cebdb3d853a06bf","0x6ad3c9df973b4fde","0x5b8294ed9ba9a07a","0x942f7fc8f341cf14","0xab6db2d2b1bf2877","0x22c18f0e8976fd63","0xb43525c2f369789f","0xe2b63ff5904e691c","0xcd0f8c6a324ef042","0xa6e8fcf2641a7630","0xa963fe0dffeaacc6","0xa5a3b5d701b232da","0x5bb473847cb0751a","0xc78ea054d28d2336","0x2e1062cb3c847da4","0xeaec917e235620e5","0xf0a44e46a602c904","0x915f70b25672f294","0x267af9bf57e6007c","0x40344e234a5e8a8c","0x470b84991edc8da5","0xfd33dc6c1a2bd5b3","0xa03a79181846fb6a","0x453ee84232d1c989","0xc12b897df9656eac","0x38ce191e85351d6a","0x03daef8a6fb5e702","0xc7d488de0d10259a","0xa8c2fd936e3d317b","0xa2b3e91d1f2c6542","0xbeede3d1fa95518e","0x4e5a775352d9ed5c","0xd2cf1e55dd555c34","0xf263d47079ebda30","0x98085c5d82c4b5f2","0x4ce543013393cdd0","0xf89f32d59f5aef48","0x89b325450c492539","0xec2e651c64eb6bae","0x7021bc1602016c14","0x00666f765b930a37","0x865c83514b30d1b8","0x68648bd0d140e305","0x9103100020e746b0","0x08f54a7797e5ceb8","0xd8f57f32a341ec18","0x72b6f5d859b77e2b","0xae306ad800ca686b","0x340da1f819aa4963","0x3a57b074949b5866","0x59503b68217b9c3a","0xb1edfa1c5ebb9156","0xa992dbd5d3eca67a","0xc587fc53d1d2bc79","0x8879aa4db970745b","0xf1ffcccd74cade83","0x7874fe594c9ae381","0x3902b8d3f6bba199","0x32cc367c639fd44e","0x421e3570e7830f06","0xdc750af6898362fe","0x1903d9d564acd181","0xd0b9336467c03433","0x5974cdfaebd5f31c","0x6e73aefd9a064693","0x139aacdb33314a3e","0x4d8e78be30310ff6","0x4414d4b7693d008d","0x72a5461324c419b9","0x305f143ce2135c25","0x119e2ae672ca2c1e","0xaf1acac1f4a7c7b5","0x1777ff3b72a77f6d","0x434a3bb5e55e1df2","0x21ba1effb5fc8560","0xcd9ca65e5afde88c","0x003ccb812148a5a6","0xb976b4e25f6bbcb5","0xc183a6bc91e77c83","0x97d55c17f0d86d4f","0x86e101c044def035","0x37f86eee5174025e","0x94e80c2420364527","0xd78eb947b1a821c4","0x493f891e570629e8","0x6f436c3075ec6c38","0xe24d6b31424ab34f","0xb5c87749611a3d9e","0xc9a02932835b6323","0x5c4b571efeac61cc","0x537cbc85597d8c92","0x49ff4f8afed5266e","0xf90447c08f804107","0x37ffe22adc8bee1c","0xeb00dcd307bc8203","0xb54b03e6a5e3a88e","0xc6e5b9595bced504","0x4e42da3476889064","0xb6121646bbd2fc7c","0xf9d10efdce9bf29c","0x19f3227eed31ba31","0x5f6d63bb0cc2c4f8","0x47554e4d43d4c504","0x9be583ba311c6fd7","0x3c3ed94801e8e18c","0x90effe6a4def5e28","0x466f383de492d754","0x8042e085d14c4e8b","0x1b121a25c7f23777","0xd1245818905e2929","0x10d17e91174cf0ab","0x5fe0e856b8e44172","0xe611ce42aa67f9a6","0x6bce0aa7b5fa8368","0x3267ad3cf67923c5","0x31bbe2b62f8aa9d9","0x2a3be22509be95c5","0xc77a97ef4a666ab1","0x3afae6c252e49c63","0xd15c57d0ac00215b","0xd222670e74c749ae","0x786ab4295bb1dcb8","0xd84404982cc706c9","0x58d76729e84ccf3b","0x2868e356fcb0cc2b","0x08efac4019fad81c","0x030c3d2f98cd3ee2","0x702e146b2bb1697e","0xe571c2845380e29b","0x74ba91b9f2a49ad5","0x6539bb6c44aeac72","0xaa58cbecc2ad8d46","0xb00dc77cc3aa7777","0xca0570aa71dcf4fa","0x8b63cfdd813744b9","0xda1a9f1f992a3962","0xcbcf6b5cc6dadf15","0xbcaece7aebe8d440","0xf053e94a7cde760e","0x9cdcea1db41922fd","0x56733a76ad42dff4","0x7e23641d7f38cac5","0x415ca023017872f2","0x76f7b0be240eaae2","0x35da69d603274296","0x77af5e1db28f2620","0x4d79a3778e6c8ba8","0xef16a10ab10878e5","0x693c05e0c26b0bf6","0x58c8cf855703459d","0x71765f435c1ba3c6","0xb4463a7bcccc6bb7","0xf00c44e920a5a623","0xe26cd9bf08a987b1","0xb20b51c40b985296","0x3ef59114b1c0a255","0x12b9ab07a7558e56","0x60d538e5970c6ca5","0xc62a5f5734212061","0xab43f3ad7cc68bd6","0x582e51f6203ddb54","0xc5c2ed8116f2cf9e","0xdfc05c458fa42f75","0x527d0a505033a7a0","0x0106c7b021f12652","0xc43fc33d5bbd4836","0x476a2bf0d2ae21b3","0xaecbf0400a592abd","0x996a82b8df69673e","0xdd6ea459876cc67b","0x86351e01b6310f1b","0xca179a029a7f5968","0xf524683cf2ad9453","0xfc98c8606ed8aca0","0xacbf3d42343d3277","0xc3ec7f0d739aaf7c","0x4374510544ee4463","0xd756f44fcf952230","0xd5d4b34612ee5728","0xac3d3a3faa31d038","0x0433be1a27285bfb","0x7d5705293fa2ff25","0x2bb1cadd0e88869c","0x61a8a990c596d1b1","0xb1cce22e18f498b1","0xe0756fd97218f16f","0xa5e8a90dbac3e751","0xa99ff90da0d2325d","0x169a68038cf68e0f","0x9f1812a098ad3fb2","0x6f58c399c3c34b72","0xb4210da00af38eeb","0xa52a29cd583e7a2c","0x1a8ed74468d5f6c5","0x8acee044cf6f41db","0x52f203f9b3607590","0xc786cbdd2ddbbe0f","0xabd7d00261e930ee","0xbfdfc45bdd49d0e1","0xf1265c55bdc9bacd","0xf31cbb303fdcf859","0x64d7a156755ce2ac","0x25050d6cb645c3dd","0xf66d9bb53592e37f","0xa3f911ec22247b54","0x420981ffb6647cf9","0x59141ed2b1de61fe","0xa53b92d276087475","0x698d1b2eb48925ef","0x0a3eafd4bdf22b72","0xc06d53b28449204a","0x09a60affd41f0923","0x9760db7e863fe6e7","0x4f9537abdc0012fb","0xfff392a043f7c53c","0x1fa3d537766fc9cc","0x827c1d2a56758333","0xb30330965e2522bd","0x7d948b2313a2f5c8","0x44fa36919bcd3c0c","0x67687f0e7e8ff3c8","0x7c6aadc12a875a1e","0xc9b9d539e66b05f9","0xc5403a3dc1d558bc","0x565bb0146e4f95c9","0x8b58dfccadc4b34a","0xdfb06c22108af307","0x8722208fb5d20125","0x03784c12f874c76b","0x666b4c57ba695f16","0xb3e4201450000a6f","0x633316a163c697b4","0xa594697b902a1dc0","0xafe37c5cd4c77354","0x59492985b9fb3552","0x7bbee9718eb13fb0","0x01fa8cb74612bac2","0xafca9a98edb781b2","0x7d7ab01e9b68f310","0xdd4dcf75bbf89555","0x773a2d1f1a3254fb","0x591fb31d03e6bde2","0x9f845038ce1bc86b","0x73817f80a7d07423","0x2d745bd968ef3106","0x8850c2aea515f7e4","0x08d303833db0e8fd","0x91848bcfe81ad425","0x47dff3481fddd19b","0x22ae34d9691bb574","0x56b39d8815740fcc","0x5a1df652abeab2c1","0x994023d0f0830ec2","0x8a28bcb3d3f8154b","0x22aa17e06bddad0d","0x48df3bbb2016a7d2","0xbb3dc6583f5177f2","0x81e759f60b1fc702","0x6950e4e6b6fd5f0d","0xe59f90fb17bce66c","0x9d7a564ed7e5f00e","0x96571ecfe6cc343d","0xd52da712d521905d","0x19e9366aaa4103b1","0x30778b4a6598a564","0x14f979382799366d","0x005ad1ff59522fa5","0xbeca48b0cf225427","0xc42e074a7b346f98","0xd54091841b1e2a7d","0xef88dda3cb027a32","0x9dc762e779d8d243","0xa1ccdbf8580d6e67","0xe93872a90b7213bf","0x99d35ec12c150260","0x837485a876d70701","0xd2a94fe40002124b","0x08f9f4d13befcee4","0x4c6443d07790f113","0x4cc57d4ba6c74758","0x24fa4acaf4670cc0","0xfd593462c6a703fc","0x038c4068c075d2f0","0xcca6da462127b7d4","0xcdc5d170d97ebfbe","0xebd2b4ff9adc564b","0x836c1fba2f971b67","0x7efa6b11a0c605fe","0x5b9025c30f7ffae2","0x704bd3d4fac790c6","0x59f16d34b100737a","0xd300b087d16a79f3","0xc8cc3d325f4e0363","0x471db6c4ae85257f","0xe767a420c69d42ee","0x5c3f881f60473ee8","0x657dc42785d65830","0x303215f5e3cc1840","0x0cd99ba616f32760","0xb0ea9a3bfcdf6eb9","0xfe535db2ba960207","0x4b1aab642a0d4c65","0xee3dcc93d03f1b04","0xe5426774fd897b85","0xfb38c3927357dccc","0xff6733a7b49b9325","0x34745a8873b8ec21","0x6e925578ad42cb05","0x17d6bbcb8780bd2d","0xfc1898e3ed658041","0x8e5d42bf455f69cc","0xad708357bb73799a","0x515de5a9a8d6d313","0xd883f38fe9afcb02","0x3afd79a6a1fb1a86","0xee1e53c71cadd7a0","0xd6def9b31b1e3be7","0x9599c5d9425818e7","0xa317ebab9a1f5f7b","0x7a67393899d6e0a4","0x454dd7f65029ab49","0x804ef90921e85c0b","0x1949e3cef599e341","0x9dd1cbfe34b7b6a0","0x4a74e0332120f45c","0x1344fbbb9fa42a64","0x952d18a8b42b96cb","0x66e848705ce037d4","0x4e712106ed7f43bd","0xe0b030493222b82c","0xd66bbd2adfe95a1f","0x88a292813cd5e0bd","0x5deb5d100b72fdbe","0xebd501aac4dbaf09","0x92c2fbd105a00ab7","0xbf7373cc6356b7c8","0xcb1ceddd80db763a","0x2259b4326bbe7354","0x42ae7b363501827c","0x75a34237af5737d3","0x747400484196bdf3","0xfa7418bef6e79066","0x9fd007441574b724","0xe6373f5be96099fe","0xaa54823ca4e75c6e","0xea383925b21f3bd7","0x7db3f4937bdf5606","0x9c0ea8a9351a2bb7","0x11c5a3b83ff88ad0","0x6ac22dbce268f199","0x27982073a52aaf48","0x95d8bf5c5cb773c8","0xe255bf8464152d7b","0x5ebf5b329d3abf8b","0x462f0b94979fd8db","0xdb549d91571e3abd","0xaf70a46fd6a4f6d5","0xae70704b002f7365","0xdf613c5ca080715e","0x07efa1aee155ad45","0x2d5ade9c7b0c0080","0x6b5ecac008256a97","0x634d9dd45778acff","0x0315961d3539e3cf","0x292f227face69785","0x91efcf13f2bfa32a","0xa19ef1033a9d2e87","0x4349d6bb6f1b5126","0x1ab44aa16536b26c","0x759b5e1d489a6423","0x92b096d3e738ddfe","0x0b4620e597051375","0x20a8a77ce6080105","0x856fa28df216eada","0x6c34aa371e66a5ac","0x87f6b0614ebe0ce6","0x052262d916ac3502","0xba6bbaacde9b7ee8","0x4f7d91b5c99800d6","0x490003f52928ad5c","0x349bd0d9fe6e6faf","0xcde87379cba82474","0x28c2fec42cd4ff3d","0xed6f6602c2bb5070","0x7c411d7eca67c562","0x2113d4a6f72ec167","0xd0fd23cce3b5c46e","0xe539ce9895559e27","0x5706764b3a8e7251","0x6d884c9dd808d3e8","0x2a8f9e40d56a6533","0x4090199b49eef5ac","0x1d2d42632087019d","0x293180c901b2ced7","0xee086680d2c92649","0x666ccd22860545e7","0x3e91f858cda5ca0a","0xa34970d44ba73876","0x2172cb054b8331b0","0x6a1023f50fef5964","0x41d32b487565ae5c","0xaeca0ea9add92b96","0x68c36c6ae7484a58","0xb0b95ba7a803167c","0x754f24acb1defef6","0xde16ce8abc6809f7","0x90a1978d59b79bec","0xaa38b0b52898c236","0xe458288cf49089e4","0x8bbf12ee76025a0b","0xf375b0734986a278","0x77c1579bf9656aed","0x873663a7a277f7c5","0x5ef7d8ee26d3c8cc","0xa130ee2b12487831","0x228e2ad333981725","0x0d2f408c935c5c61","0xae3f55e79d0c7546","0x31846e478a63f7de","0x6b3e3ccc5344a8ec","0x16a2aee25ac8825e","0x52857b99900668b5","0xeac2138482852a8d","0xf689c166953c41b4","0x3c690ad7e5830762","0x772b8a48bd854f09","0x4f014a3d1970bb79","0x696bdebec4d837f5","0x300ce89cd9a568ac","0x47ad896f171712dd","0x5e0e2e1f4d1cb67d","0x8a1621bff8d97bc3","0x11aee7d992787afa","0xd56ba5ac273b82ff","0x4169a3f69dd02d9c","0xcf3f20e27a2fef56","0x77b8d1d2ef46fbeb","0x23686ce670cfce0d","0x9a8f2b2efcc9aa6a","0x3018257319463042","0xe59757b7290c6b05","0xe89e682977eddaf3","0x5ae8f0e17085f72a","0x9f892c89ec77ca0c","0x9f20bd467d0a1f8d","0x70d3b965817fcc6a","0x545319f68f662b38","0xbf1f5b8900c1feaa","0xf67b1c1700d63a43","0xeba5e170aa17a734","0x754b7a9da05f9d6b","0xfb21e2a6c945a0e0","0x1f3cc4c575f24cdd","0xda0b8b42199274f8","0x5168b0357b6893fc","0x34bdfef0c76274f3","0x5c52e47add9d0d87","0x8338f809c89a3dc2","0xa8e21efb97d87d0b","0xec61b75ff8e7b47c","0x7d8171b6c0d94897","0xfbf284fb0135aefc","0xaaba3ba6f53c2bc0","0xc68db56db6be9cdf","0xe9a7d8811cfc2a5f","0xf9c53e3733487a23","0x6c7e38c13014b17e","0x13eabf8e04c78ab8","0x9a54a195cdee63b9","0x6aae3723e802352c","0x4d1ae6d236457545","0x70650d43afe9349a","0xa9d6d2f459cb6348","0xafe916f73e90ddc9","0xa33225cd7b8db3b3","0x5dc330c68f0b6d72","0xed46bbb54a52a82b","0x2735fbfdb8fe4d7e","0x955ed34e105839b7","0x4b08a39041d3bf2c","0x11a55559adfb98eb","0x244336ba66810381","0x3552996ae2958a6f","0x09700e1032c44f00","0xa09bd5d06db82ba2","0xa3870693017b0849","0x4e902dff02f9c8d7","0xec1a32d6a06124fc","0x5459d7f5b7aac83c","0x96b0ad459a91b375","0xc084a935beb423e5","0xb09fce86c97162f2","0xb168e26a5a1cdbaf","0x1e4f58b8682c9b80","0x147983a34ff8d710","0x9922694f32ffbd88","0x213a936dc7944236","0xac9c606ca674ae26","0xc5422dc1b0c053a5","0x9d28c1d08b2c4f1c","0x14b2a39b089cbf0f","0xde12437e48f4a6d8","0x7c19dc4ed256dfb1","0xe1b776d5923f1e6d","0x5315ec236ef38edc","0xb43748f8a60e110f","0xb2109e9b3d00e39a","0xf19888613ed1ffd3","0xc1593033ece3c36d","0xe3caabc1e1500c56","0xce914b6d2262b6fb","0xee2c0a8c81474d59","0x801f59a5e3b1e58e","0xaf7c7efc7216144c","0xedfe6852efdf7ed4","0xd6672abdf30a1607","0xa0b6b1a886798fcd","0x9e8b93a7461706bb","0x5a8c8c3c713df172","0x634fd53df21c7d46","0x1d3f1991f0e1ab32","0x352fb86e0ad1bae2","0x28190fd642c92df5","0xf2213725999337ae","0x660103099b1929f2","0xc68b8113d042fddc","0x16011b138a60e35c","0xbd23b13cd8f305c0","0xf387f0b8482987f7","0xe23d70a988574e87","0xd985f4db38841645","0x24c612829f3cd6f9","0xc0f2299e961541c9","0x44b8f67a6c58a5f1","0xa1d6c0e5fc84c749","0x684cc39274a9dbad","0x6a3fcbe06f3f80ba","0xa9f0d3e5d95bf09f","0x4e6d84d27dda46dc","0x8335bcd366f42a15","0xa4cdf6362a099150","0xb9fe464d9d78cd55","0xa4d8dd85a2d5d31c","0xb1fbe5213caf29d9","0x5d3bc8c9da992ab5","0xf806a4f3ad4eeabb","0x1afbd3c85e653e00","0xe5ade2e978e645c9","0xe3acd4d00f1ee64f","0x9fbafdb115adc33a","0x8379e7f57ea7d435","0x958a718887bdb040","0x5fdccee0f7b63c48","0x560d053a7873b144","0x9d729b7f8a6923e4","0x81f2e6e06746a26f","0xc478f256df73d8c5","0x8dc6143682e5770f","0xe89889c205338390","0xb02e039503429bd6","0xe13d888553fe31cb","0x4c42286ed01997b8","0x15833d45e01e01d5","0xb271ed58c3be0e5c","0x340b1760d9db3379","0x2048fecebe0b90b0","0x41c9b58c1c344e6b","0x699b22d32b48979d","0xa97cdcd6be36af20","0x5b8fb9da4bbd1c37","0x681c24e24d2b66b4","0xfbe00c77cc605a11","0xd26d0cd0f65ca095","0x7ee3059a968460cb","0x1598824ee3b47e1e","0xb405b046539de7a1","0x2787b2dd0d7ca43c","0x97fb4826c1a20b25","0x7320000eac852c34","0x861c045ff2ef9ab5","0xd2be85fbb56ef0ac","0xa58961593f5fd3c9","0x69568b6a012f1162","0x76c7151e93a0ce2b","0xd2885bb39f3b3e16","0xe5dab1be3315f565","0x79d3b90afe887639","0x4ac3534c1f66152e","0x52199ff904aa3545","0x4e5a17dbf4792d56","0x7c27d37c2fd3667d","0x30582852c409688f","0x1d8ad119f9869482","0xe147b6bbc2a34960","0x310a59a4961b5433","0x22a8a6d075fb2fa3","0x2b874c2e1e9042da","0xd31c798352fcaa7f","0xf0f3730c29a04527","0x167e8961399cc6cb","0x776a2e8cb59eb626","0xe3e36b7a95636fa2","0xc696cae05abb39e9","0x50af3e3b89d60c36","0x0544e310a8670184","0x37cddc7602f68414","0xe63ce271295556d9","0xd5076904ec613af2","0x72e2645fcbf106fd","0x4b58c56bc502fbb2","0xacf265c09edf8195","0x77795c9aa8591a1d","0xeddc191ace2d42c0","0x4b5958bbc377e216","0x3a4101c6d9912e5d","0xe959153e6d2849a2","0x8580e4434d2d2ee4","0x127ef85887cbf4f5","0xb2025166868d6286","0x1a5460208dd154ef","0x714d75b8e21cd807","0x55b255b4ff958150","0x68af014390f00984","0x1efa8cce139f3658","0xf9a706dc5272e92a","0x32f874a025bc937f","0x3818ee4ab3658ab7","0xb24dea693076a857","0xf7affa1fc02a0425","0x6ed9741b13f6e646","0xafff9ea04fcc3241","0xfc5b7d4ab68f977f","0x6ae44d00d3ac912f","0x994677888496c4c6","0xd19ec5fe28968335","0xf1f9af7a1912b0ed","0xddfdb47a116a515d","0x8e1174599af10a24","0x390beef8606211e9","0x94a2b5540897eaf1","0x23ec9d1cf8459d4f","0x92e65ef60268a39c","0xd5a81b7565bbe826","0x9ccf18667be406cb","0x9339e26e7faa60e5","0x9035c527dee4112c","0xdcd36e54daa6edb2","0xc7e7b6de9a976bf9","0xd4175ed609b914ba","0xef0fff6148ece9a1","0xdc337e46184872ba","0xa7ce43122be6290f","0x7a40ae17f2d7055f","0x368ff30da1578f9a","0x0791d3bc2719ea9b","0x1563319a2b8f0173","0x8a2cdbd13af0a61b","0xbdc88b5931878c2b","0xe16ff68bb9aa8c9b","0x4e67e45e83d39553","0x54279ff1088e81b8","0x5b63b0d155d24139","0xf847537237d8650e","0x4ee85f99c334af07","0x2a3c134bc56f51b8","0x3f5168a601fd22d2","0x0ead3287fb144f1d","0x99061b810f8417fa","0x55804ee9ef8c8cd9","0xcbfb7991abb5945a","0xfdfc33087064eeda","0x30e7b1041b84d4cc","0xcc3f39c6c7f5987c","0x79efdad6026c62ce","0xbf08ae3563ea0b73","0xc765ae1cab4b3b89","0x70fd7947f5044937","0x499d8f781f3c6bbf","0xc424134ba0e8d2a3","0xc01544b348c43f99","0x291b580263174f74","0x9396da50160d3502","0x219565ae5dc6504e","0x99d39b40793e7825","0x1319e669a7b0c06b","0x60daf96e9082a2c4","0x18493c9c8e130fd2","0x76ca4b55dd8d008f","0x3c9cdc0fb9bddccf","0xcf1374b603428f45","0xbd5b021062ceaf73","0xecb8cc6841563817","0xfed1623c3b2d747b","0xd7ab4750a2a80db3","0x217884e65052e23a","0x2c576848062f4615","0xe3b4857872a8c06b","0x5a2c249b2f84d5bf","0x0bd97a6fa9054720","0x272142aa4f94c00f","0x28bdc7e4c42f1279","0xe19f1c7c1172339f","0x9fc4c4dbdc966eeb","0x0a2786de20ea9021","0x3a99e9ffc2a9164b","0xe719d3d14f5c26d8","0x56f8c7c5a54b4461","0xc0abc5ee7cfa2281","0x35507a4f77d81ba7","0x59dd96a136570e6c","0xc6fc27f094927607","0xe82bcd8705022cfc","0x2340780caa9db509","0x3b5accd2fccfc580","0xfd7223d1bc4066a2","0x695b8958168fada5","0x6854eb2999de1c0d","0x4aa96afe844f1644","0xf91b0faeb5155f96","0x7b9afd43a6a799f1","0x32986e49b7649a6a","0x9919bb4267d728b9","0xae95660d729c5ede","0x225a151844658e18","0x281353fab1b95b27","0x9c7b60c4487b157a","0x9d4e7df01db2aabb","0x36cfd1185d925031","0x48309def1727fabc","0xdc7a64dbd74b68c7","0x8bc951e20613fc34","0x64f8296d56a60fe6","0x057d7d9e2326a543","0x5acaaf6df4977545","0x377f9dd7fdab0f1b","0x576c72ababf5a547","0x5f4d8d58a725344e","0x9d6638746f20eeb0","0x372f51334a8f0ee1","0x2f1bc6c3dacc95df","0x9f714c1a68438dd3","0x08c82800c5801ad8","0xab30e284271fb7fd","0x89e335f80f162175","0x86ac32afb67350d3","0x6de156819e33902b","0x5f145f88e141df3f","0xe15e0893e2d75cf3","0x9b17a1bac6ea7e74","0x2abd144d91c75d22","0x8b8631b05d8e86a9","0x83b5483f71022267","0xefc6a5e84d26701a","0xb96d1840f43485f6","0x9dff18b10bfcd0f5","0x44d7f1da35788a64","0x4f6b05fb8c6361c0","0x72b37f939212bd39","0xf85d16064c7dbe07","0x8c02f8a0db6b7c57","0xc58d23ee32d15019","0x13ac40c8a9bcd18d","0x91d5cfbee7d46548","0x6896db54f07bda42","0xd015def461dd7038","0x3e08397b7f59dbd7","0x212ee5d1478dca93","0x1be540d48e8c7122","0xf67948fcf6de1a91","0x6d2b82d3e733a5e4","0xafd88a97262a2f38","0x82f4365c6c1c9d86","0xa5d892809cc06b0b","0x6679908256f24bf1","0x6b214a3d60fada42","0xc9a4142158eb969d","0x743370b7f0834d7e","0x7a1b5c1855dc1dbe","0xa21c8fae38f67396","0x400b793bc7035608","0x639197208838c5eb","0x1e1eec9e13e34ffc","0x874b48d5231f99cd","0x8fcaf26571125e4f","0xa3727fce338d7c94","0x648ae742219f9fd5","0x824fc99e783c7206","0x880c6115fbf3040a","0x10b45496c232c809","0x160a27644bc3782d","0x4d7bfc8270fe260b","0x6607aadbca7da3a9","0xbe96a75dbbe2e822","0x3e9264b9445147be","0x04cc89631ac0c622","0x04b4ba3dcb25db5a","0xd6c32758d417dbb5","0xd479d5a4b641ce54","0x7116f09a740fd441","0x4b9cec93ab69bb6a","0xa8c1837490a2325e","0x11723591190fd9d9","0xf29b32e406660e72","0x84656d041ac4b8d3","0x0308288526d14fea","0xc5981021fec2daea","0x062a91c849775482","0x92e4bfbe2af93e47","0x8bcebf39d6179c6c","0x57ffb3b4015b366e","0x34fa650280b397b1","0xb8fe80836363a84c","0xd070718d99450053","0x43bf0f0f355b9580","0x4e9781976d81670f","0xadd0354390ea8b7d","0xea569fc8f60d1b5a","0x5a6f7297b189478f","0x5055e0e9947b6bc1","0x680a6b122d334fd1","0x288df854aa454198","0x0d84b788c5bae1f3","0x5f6ee2a62eb505db","0x22a738f2b905029d","0x9b3cca1e6819d818","0x78b24bd39cdd92eb","0xe87611c537363dc7","0x50956b3724ea0dac","0x17496bcb613ddc09","0xda67973dd0308909","0x12794369ecca57c8","0x849a0db9bc521d7e","0xb6a854596c73901b","0x99ccabea70239936","0x2a7116fc243f4841","0x6288450828bd8ef4","0xae587438f52828af","0xc880548b1d93cef2","0x07b7e2778ce22406","0x44a32b41f7d27d5d","0xf9c83ea77f2b9705","0x39f13172ed159f34","0xe1a050669a29b1fd","0xd90868d42cf719e1","0x67c1450cb4ddef3f","0xf2c1204776990b5f","0xcc9299c7318ff5a3","0x228b88291af693e2","0x625fb1404216c4b3","0xd1bdb8f43f82501c","0xf46ab9b6004b217d","0xa4dd8c1ce704382a","0x24852ac1bbfd298c","0xc433135bfd3acad2","0x32bc5da7afd6e3e3","0x0d0d17b0c6455f85","0xe53103089ee194ba","0x326fa1586b367cb4","0xa6791a8859b3671a","0xb2d10c563f75cf65","0xcbba548971ac0efb","0x5e36d88d34646532","0xe458c152ffcb33d8","0x95fcfd27d507ec1f","0x3b9db36c7898d175","0x89c049553c97e3eb","0xd2d7695842122d05","0x707c88902e197bd3","0xc36f71ba2e6cd0b8","0x6bf87901f5e5b7f5","0x64588ca873a9ff70","0xa0900fefd35b25a6","0xb6a50e32260c1c3e","0xf42809ce98e4bda6","0xea1a07b482d7876a","0x78e8a1c0769dc866","0xb80f8e0ffa859592","0x2b0bcaf76bbf95f0","0x6811342bd7ac7065","0xca1fa0e1a9fd58d5","0xb264cd74131f4710","0xcb3107dc9d94da94","0x139619402acbacab","0x296e22e8e12d6c1c","0x5d06ebf5ed2be387","0xe06e4b99a847b961","0x0e45f5ff4e3ca3ed","0x9734ccc0120032ff","0x1aa1eae96dd20e56","0x7b435c0d886813f7","0xccdd3c30d6d067ec","0xda9e7837f7beccd4","0xdf53bb932ce6a1ba","0xd0a8e6520081e1c4","0x25fef29321cfa2e8","0x123c6d69a29e4e29","0x8492f7ff97011f0f","0x1228c1b9cd2a43f0","0x1b565095d4e1395c","0x472f8b7cb8460d8f","0x22507f0fc13c613d","0x2969045bb4b05d5c","0x37635fcab200a741","0x6068bad6a2b8dc23","0xc9866fb3a4c54459","0x185a3556a7e1b01e","0x83962f28f26d3259","0xe8dd859a973fd026","0x5cd6448f19fe3c88","0xb88496f629be1394","0x2f8ca571cf24cab9","0xc672c53e2e06458d","0x87a1fcec06f97403","0x9a2cd69e488d2516","0xf3a911d83921abee","0x39fad11b0b347741","0x67a038d7b5196264","0xdfcf2ba2500524d7","0xe38a25cd5d512f6c","0x7697e13a3190b241","0x85be4c6feea88e5b","0xbe0f88b2f8c256e0","0x4c2f9df6ff876d1c","0xed7291edfccdbd93","0xe297a4dd960d65c9","0xf793bbba6bcefd70","0xb670717776178a3f","0xcee34d898319f092","0xf7e619fd40a85d00","0x7edd24f5f03c4d9b","0xf4827c89d2b4d683","0xd4e2feee34ef8264","0x36694e5459810ea9","0xf49cf9bb73e8accf","0x509850244dcfe1f9","0xc6d4f9d17957b304","0x1362b445c78d80cd","0x1955dbb5358c04b7","0x2a992896540998f5","0x266ddf0f7fd095f6","0xcb529e9606bb61c5","0xa9a79276dbc2b774","0x58e84351324bcde4","0xc892a8751348c411","0xddc92f29afa8dec8","0x640947c4ca12b7fe","0x2122de6274fb5841","0xcc4b391fef86ebb3","0xd564d687b7be914d","0x6cb756708cb58029","0x1b570e29c38666db","0xf83268548d7410c8","0x3218896547973405","0xb8460e7a308cefe4","0x42a9b4429f4b15c8","0xd93fff7f7b9e1e4a","0x7237cd1252ab62bd","0xac60e05deb62dc5b","0xbada1ea8e43a9142","0x91f1b69fa6c39f14","0xff51668ffaf0a03f","0xd11af2246a538587","0xcb8401664e0b9b39","0xa64539c2d6e09413","0xadf97dfb7d941703","0x27cb5f26f0514fe8","0xdc432344fa71e050","0xfde5aafc8872aaaa","0x5666ab283a43a2fc","0x14b8fb14ca995c80","0xb8810e03779f2182","0xed304f37dc1ae5af","0xde1dec5955f4df17","0x06f1ce1902d0d312","0x6eac4ce52fc476ae","0xf6134c56c69f253f","0xa34fbcd2cd7db6f9","0x5fa1411e1497e70d","0xc19e272d52c278ad","0x19b82cf2f7f9383b","0x1f13704360bafd0e","0xff99582d03dd9d46","0x52910b375d51b887","0xf859490c32a309c0","0xd36021c2237add0d","0xccc6ba41b661340c","0xb29d4b55d7640b79","0xef08bba63991a402","0xd18a1ed28aef247c","0xb4e7ff067f510b61","0x1e70231e9b558778","0x459bb370bef3ad1b","0x3bd3e45e20059e0c","0xdd313ac473dc29c2","0xb1dbfa32bd43fdd1","0xaedf6de47877b897","0x896ad936134be1e0","0x13728af34220c9de","0x4e2fb74463c68dcb","0xa7759da67b6d8aa3","0x742e29fe2233df76","0xb925108b4861042c","0x7c012a4cf3cf1791","0x4768d2da796e76a5","0x35695fe43b081a48","0x37a100b502300e88","0xd9ecc499f76e0e89","0xef1e3a35a40e3f95","0x92bcedc756b42082","0x3589f95df42649e7","0xb8379a8b1f486905","0x5532d4110475ec56","0x2c80b6d61ec5329d","0xc09c3c3285a3d85b","0x88a4efdd3d5d9490","0x877c212ed9181ae5","0x3d4f8099e19c38d0","0x63317ab40e8371a7","0x717bd6a76b9612ca","0xd1950dcf2611646f","0x1a2ffb9730725c9c","0x19e0a8974d66591f","0xd78057c5a7f940a3","0x6931456b25080b13","0xccbf8cba2f01a83c","0xd720dd65a7f96817","0x73be2b107fb3cdee","0xe4089d1961f7b526","0xbaceb5549321e92d","0xeeefd930f52e9e4d","0x07f2fd0652020002","0x9330dea40a932667","0x0e65a153bbb71b75","0xb37d511be5af9f3f","0xd65527ccb1de8fa3","0xe8c476617146016e","0x9eeeaae032c95330","0xd184a2499aab5b76","0x011564653ecab65b","0x0f2316883b266e02","0x75acd3bc93bdb27c","0xac2ff4f962f0cb66","0x54b4585ee6893567","0x7afdcad41af51116","0x2aa9ec8c2606e608","0x5d5f7eaf1f40c529","0xb9dbe05787e97f79","0x52a9fc6a06a17fc5","0x39fb8593ba74a71a","0x9097dee3c3634b23","0x9254f0bec15b12b7","0xf077ff823973547e","0x212efb95eadd09ad","0x62457e2e7d47d05c","0x3b6a674fb86f2334","0xf126e7118fe67026","0x20985af67eb70244","0xfc69404f465c717a","0x4437e29daf4826ef"];
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+window.__collatzStarted = true;
+
+const $ = id => document.getElementById(id);
+const statusEl = $("status");
+const container = $("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020307);
+scene.fog = new THREE.FogExp2(0x020307, 0.00115);
+
+const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.05, 10000);
+camera.position.set(180, 130, 180);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  preserveDrawingBuffer: true,
+  powerPreference: "high-performance"
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.25;
+container.appendChild(renderer.domElement);
+
+let controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.055;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.42;
+controls.zoomToCursor = true;
+controls.minDistance = 3;
+controls.maxDistance = 6000;
+
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.32, 0.35);
+// Since three r155 the composer output is linear and untonemapped unless an
+// OutputPass closes the chain; without it, bloom lands on hard-clipped pixels.
+composer.addPass(renderPass);
+composer.addPass(bloomPass);
+composer.addPass(new OutputPass());
+
+// Cap the bloom input at 1.0 (linear). On the shared trunk thousands of identical
+// polylines add up to HDR values in the hundreds, and adjacent segment ends overlap
+// by a pixel at every node, so the HDR image carries a 2x bead at each node. Bloom
+// on the raw HDR image blows each node up into a ball and lets the trunk dominate
+// the whole picture. With the cap, trunk and nodes bloom alike and no more than a
+// bright single line; everything below 1.0 is untouched. The base image is not
+// affected, only what the bloom pass sees.
+{
+  const BLOOM_INPUT_CAP = 1.0;
+  const hp = bloomPass.materialHighPassFilter;
+  const marker = "gl_FragColor = mix( outputColor, texel, alpha );";
+  if (hp.fragmentShader.includes(marker)) {
+    hp.fragmentShader = hp.fragmentShader.replace(marker,
+      marker + ` gl_FragColor.rgb = min( gl_FragColor.rgb, vec3( ${BLOOM_INPUT_CAP.toFixed(2)} ) );`);
+    hp.needsUpdate = true;
+  } else {
+    console.warn("Bloom input cap not applied: high-pass shader changed in this three.js version.");
+  }
+}
+
+let lineObject = null;
+let pointObject = null;
+let geometry = null;
+let buildToken = 0;
+let fittedSphere = null;
+const analysisCache = new Map();
+
+const starts = window.COLLATZ_STARTS.map(BigInt);
+
+let loadedDataset = null;
+let datasetVersion = 0;
+
+function formatBigInt(n) {
+  try { return n.toLocaleString("en-US"); }
+  catch { return n.toString(); }
+}
+
+function parseJointHistCSV(text, name = "jointHist.csv") {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter(x => x.trim().length);
+  if (lines.length < 2) throw new Error("CSV contains no data rows.");
+
+  const headers = lines[0].split(",").map(x => x.trim().toLowerCase());
+  const idx = key => headers.indexOf(key);
+  const is = idx("steps"), io = idx("oddsteps"), ic = idx("count"), im = idx("min_start"), ix = idx("max_growth_start");
+
+  if ([is, io, ic, im, ix].some(i => i < 0)) {
+    throw new Error("Required columns: steps, oddsteps, count, min_start, max_growth_start.");
+  }
+
+  const rows = [];
+  const groups = new Map();
+  let totalCount = 0n;
+  let minSteps = Infinity, maxSteps = -Infinity;
+  let minOdd = Infinity, maxOdd = -Infinity;
+
+  for (let li = 1; li < lines.length; li++) {
+    const p = lines[li].split(",").map(x => x.trim());
+    if (p.length < headers.length) continue;
+
+    const steps = Number(p[is]);
+    const oddsteps = Number(p[io]);
+    if (!Number.isInteger(steps) || !Number.isInteger(oddsteps) || steps < 0 || oddsteps < 0) continue;
+
+    let count, minStart, maxStart;
+    try {
+      count = BigInt(p[ic]);
+      minStart = BigInt(p[im]);
+      maxStart = BigInt(p[ix]);
+    } catch {
+      continue;
+    }
+    if (count < 0n || minStart <= 0n || maxStart <= 0n) continue;
+
+    const row = { steps, oddsteps, count, minStart, maxStart };
+    rows.push(row);
+    totalCount += count;
+    minSteps = Math.min(minSteps, steps);
+    maxSteps = Math.max(maxSteps, steps);
+    minOdd = Math.min(minOdd, oddsteps);
+    maxOdd = Math.max(maxOdd, oddsteps);
+
+    let g = groups.get(steps);
+    if (!g) groups.set(steps, g = []);
+    g.push(row);
+  }
+
+  if (!rows.length) throw new Error("No valid data rows found.");
+
+  for (const g of groups.values()) {
+    g.sort((a, b) => a.oddsteps - b.oddsteps || (a.minStart < b.minStart ? -1 : a.minStart > b.minStart ? 1 : 0));
+  }
+
+  return {
+    name, rows, groups, totalCount,
+    minSteps, maxSteps, minOdd, maxOdd,
+    stepGroupCount: groups.size,
+    sameStartCount: rows.filter(r => r.minStart === r.maxStart).length
+  };
+}
+
+function datasetRowsForTailN(n) {
+  if (!loadedDataset) return [];
+  n = Math.max(0, Math.floor(Number(n) || 0));
+
+  const selected = [];
+  const stepKeys = [...loadedDataset.groups.keys()].sort((a,b) => a-b);
+
+  for (const steps of stepKeys) {
+    const g = loadedDataset.groups.get(steps);
+    if (n === 0 || n >= g.length) selected.push(...g);
+    else selected.push(...g.slice(g.length - n)); // highest oddsteps
+  }
+  return selected;
+}
+
+function activateLoadedDataset(dataset) {
+  loadedDataset = dataset;
+  datasetVersion++;
+  analysisCache.clear();
+
+  $("datasetModeOption").disabled = false;
+  $("sourceMode").value = "dataset";
+
+  // Long-run joint histograms may extend well beyond the old 1000-step slider.
+  $("minSteps").max = String(Math.max(1000, loadedDataset.maxSteps));
+  if (Number($("minSteps").value) > loadedDataset.maxSteps) $("minSteps").value = "0";
+
+  updateLabels();
+  updateSourceUI();
+}
+
+async function tryAutoLoadDefaultDataset() {
+  // This works when the HTML is served together with jointHist.csv (for example
+  // from localhost). Some browsers deliberately block relative file:// reads.
+  try {
+    const response = await fetch("jointHist.csv", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    activateLoadedDataset(parseJointHistCSV(text, "jointHist.csv"));
+    return true;
+  } catch (err) {
+    console.info("Automatic jointHist.csv load unavailable:", err);
+    return false;
+  }
+}
+
+function currentBaseSample() {
+  const source = $("sourceMode").value;
+
+  if (source === "dataset") {
+    if (!loadedDataset) throw new Error("Load a jointHist.csv file first.");
+    const tailN = Math.max(0, Math.floor(Number($("tailN").value) || 0));
+    const pick = $("startPick").value;
+    const rows = datasetRowsForTailN(tailN);
+
+    // One entry per drawn sequence; seqRows stays index-aligned with starts so the
+    // CSV metric check applies to both representatives of a row.
+    const seqStarts = [], seqRows = [];
+    for (const r of rows) {
+      if (pick !== "max") { seqStarts.push(r.minStart); seqRows.push(r); }
+      if (pick === "max" || (pick === "both" && r.maxStart !== r.minStart)) { seqStarts.push(r.maxStart); seqRows.push(r); }
+    }
+
+    return {
+      source: "dataset",
+      starts: seqStarts,
+      rows: seqRows,
+      rowCount: rows.length,
+      pick,
+      cacheKey: `dataset:${datasetVersion}:tail:${tailN}:pick:${pick}`,
+      label: `${rows.length.toLocaleString()} representative histogram rows`,
+      representedCount: rows.reduce((a,r) => a + r.count, 0n)
+    };
+  }
+
+  const count = Number($("sampleCount").value);
+  return {
+    source: "random",
+    starts: starts.slice(0, count),
+    rows: null,
+    cacheKey: `random:${count}`,
+    label: `${count.toLocaleString()} embedded random starts`,
+    representedCount: null
+  };
+}
+
+function nextCollatz(n) {
+  return (n & 1n) ? 3n * n + 1n : n >> 1n;
+}
+
+function v2(n) {
+  let k = 0;
+  // Keep the exponent exact: Syracuse steps need the next odd value.
+  // Rotation limits belong to the individual display rules below.
+  while ((n & 1n) === 0n) {
+    n >>= 1n;
+    k++;
+  }
+  return k;
+}
+
+function log2BigInt(n) {
+  const x = Number(n);
+  if (Number.isFinite(x)) return Math.log2(x);
+  const bits = n.toString(2).length;
+  const shift = Math.max(0, bits - 53);
+  const top = Number(n >> BigInt(shift));
+  return Math.log2(top) + shift;
+}
+
+function collatzLength(start) {
+  let n = start;
+  let steps = 0;
+  while (n !== 1n && steps < 10000) {
+    n = nextCollatz(n);
+    steps++;
+  }
+  return steps;
+}
+
+function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+// One accelerated odd->odd Syracuse step.
+function syracuseInfo(n) {
+  const x = 3n * n + 1n;
+  const k = v2(x);
+  return { k, next: x >> BigInt(k) };
+}
+
+// The odd residue classes mod 8 split naturally into three v2(3n+1) families:
+//   n ≡ 3,7 (mod 8) -> k=1
+//   n ≡ 1   (mod 8) -> k=2
+//   n ≡ 5   (mod 8) -> k>=3
+// We encode these as an expanding / mild-contracting / deep-contracting pitch.
+function mod8FamilyFactor(n) {
+  const r = Number(n & 7n);
+  if (r === 3 || r === 7) return 1.0;
+  if (r === 1) return -0.65;
+  if (r === 5) return -1.65;
+  return 0;
+}
+
+// Pruned inverse-tree leaf count for the normalized Collatz map
+// T(n)=n/2 (even), T(n)=(3n+1)/2 (odd), pruning multiples of 3.
+// At depth d the structure is determined by the root residue mod 3^(d+1).
+function inverseLeafCount3(root, depth) {
+  let frontier = [root];
+  for (let d = 0; d < depth; d++) {
+    const next = [];
+    for (const y of frontier) {
+      const evenPred = 2 * y;
+      if (evenPred % 3 !== 0) next.push(evenPred);
+
+      if (y % 3 === 2) {
+        const oddPred = (2 * y - 1) / 3;
+        if (oddPred % 3 !== 0) next.push(oddPred);
+      }
+    }
+    frontier = next;
+  }
+  return frontier.length;
+}
+
+const INV3_DEPTH = 5;
+const INV3_MOD = 3 ** (INV3_DEPTH + 1); // 729
+const INV3_EXPECTED = (4 / 3) ** INV3_DEPTH;
+const INV3_DEV = new Float32Array(INV3_MOD);
+
+for (let r = 1; r < INV3_MOD; r++) {
+  if (r % 3 !== 0) {
+    const leaves = inverseLeafCount3(r, INV3_DEPTH);
+    INV3_DEV[r] = Math.log2(leaves / INV3_EXPECTED);
+  }
+}
+
+function inverse3Deviation(oddUnit) {
+  const r = Number(oddUnit % BigInt(INV3_MOD));
+  return INV3_DEV[r];
+}
+
+const DEG = Math.PI / 180;
+const AXIS_X = new THREE.Vector3(1,0,0);
+const AXIS_Y = new THREE.Vector3(0,1,0);
+const AXIS_Z = new THREE.Vector3(0,0,1);
+const FORWARD = new THREE.Vector3(1,0,0);
+const tempQ = new THREE.Quaternion();
+const dir = new THREE.Vector3();
+
+const lineMaterial = new THREE.LineBasicMaterial({
+  vertexColors: true,
+  transparent: true,
+  opacity: Number($("opacity").value),
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  fog: true
+});
+
+const pointMaterial = new THREE.PointsMaterial({
+  vertexColors: true,
+  transparent: true,
+  opacity: 0.045,
+  size: Number($("pointSize").value),
+  sizeAttenuation: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  fog: true
+});
+
+function colorFor(n, odd) {
+  const t = clamp(log2BigInt(n) / 84, 0, 1);
+  if (odd) {
+    return [
+      Math.round(255),
+      Math.round(58 + 142 * t),
+      Math.round(68 + 82 * (1 - t))
+    ];
+  }
+  return [
+    Math.round(42 + 100 * t),
+    Math.round(188 - 54 * t),
+    Math.round(255)
+  ];
+}
+
+function segmentLength(n, falloff) {
+  return 3.0 / (1 + falloff * Math.max(0, log2BigInt(n)));
+}
+
+// v4: hue-only tints. The target colour is rescaled to the luminance of the
+// base colour before mixing, so tinting never brightens the additive cloud.
+// Vertex colours pass through linear->sRGB output and ACES tone mapping, both of
+// which desaturate; the targets therefore need to be strongly saturated here to
+// end up as a gentle tint on screen.
+const TINT = {
+  oddBranch:  [255, 140, 30],    // amber
+  evenBranch: [30, 180, 255],    // cyan
+  deep:       [255, 150, 40],    // warm
+  k1:         [255, 70, 150],    // rose
+  k3:         [40, 255, 160],    // mint
+  red:        [255, 50, 40]      // second fork (v6)
+};
+function luminance(c) { return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+function tint(base, target, amount) {
+  if (amount <= 0) return base;
+  const s = luminance(base) / Math.max(1, luminance(target));
+  const out = [0, 0, 0];
+  for (let i = 0; i < 3; i++) {
+    const t = Math.min(255, target[i] * s);
+    out[i] = Math.round(base[i] + (t - base[i]) * amount);
+  }
+  return out;
+}
+function dim(base, factor) {
+  return [Math.round(base[0] * factor), Math.round(base[1] * factor), Math.round(base[2] * factor)];
+}
+
+async function analyzeStarts(sampleStarts, cacheKey, token, sourceRows = null) {
+  if (analysisCache.has(cacheKey)) return analysisCache.get(cacheKey);
+
+  const count = sampleStarts.length;
+  statusEl.textContent = `Analyzing ${count.toLocaleString()} Collatz sequences and merge traffic…`;
+
+  const seqs = new Array(count);
+  const traffic = new Map();
+  let maxSteps = 0;
+  let csvMismatchCount = 0;
+
+  for (let i = 0; i < count; i++) {
+    let n = sampleStarts[i];
+    const seq = [n];
+    let guard = 0;
+    let oddCount = 0;
+
+    while (n !== 1n && guard < 10000) {
+      traffic.set(n, (traffic.get(n) || 0) + 1);
+      if (n & 1n) oddCount++;
+      n = nextCollatz(n);
+      seq.push(n);
+      guard++;
+    }
+
+    seqs[i] = seq;
+    if (guard > maxSteps) maxSteps = guard;
+
+    if (sourceRows) {
+      const row = sourceRows[i];
+      if (row && (row.steps !== guard || row.oddsteps !== oddCount)) csvMismatchCount++;
+    }
+
+    if ((i & 127) === 127) {
+      await new Promise(requestAnimationFrame);
+      if (token !== buildToken) return null;
+    }
+  }
+
+  const metrics = new Array(count);
+  for (let i = 0; i < count; i++) {
+    const seq = seqs[i];
+    let unique = 0;
+
+    for (let j = 0; j < seq.length - 1; j++) {
+      if ((traffic.get(seq[j]) || 0) !== 1) break;
+      unique++;
+    }
+
+    const steps = seq.length - 1;
+    const relative = steps / log2BigInt(sampleStarts[i]);
+    metrics[i] = { steps, unique, relative };
+  }
+
+  const result = { seqs, traffic, metrics, maxSteps, csvMismatchCount, sampleStarts, sourceRows };
+  analysisCache.set(cacheKey, result);
+  return result;
+}
+
+async function rebuildGeometry(options = {}) {
+  const token = ++buildToken;
+  const minSteps = Number($("minSteps").value);
+  const minRelative = Number($("minRelative").value);
+  const minUnique = Number($("minUnique").value);
+  const rule = $("ruleMode").value;
+  const evenTurn = Number($("evenAngle").value) * DEG;
+  const oddTurn = Number($("oddAngle").value) * DEG;
+  const pitchScale = Number($("pitchAngle").value) * DEG;
+  const falloff = Number($("falloff").value);
+  const colorMode = $("colorMode").value;
+  const tintStrength = Number($("tintStrength").value);
+  const trafficLengthGain = Number($("trafficLength").value);
+  // v6: "n" or "n,m". Fork n tints its odd branch gold and its even branch cyan;
+  // fork m tints its odd branch red, which takes precedence above m.
+  const forkList = [];
+  for (const part of String($("subtreeN").value).split(",")) {
+    const t = part.trim();
+    if (/^[0-9]+$/.test(t) && BigInt(t) > 0n && forkList.length < 2) forkList.push(BigInt(t));
+  }
+  const subtreeN = forkList[0] ?? 40n;
+  const subtreeM = forkList[1] ?? null;
+
+  statusEl.classList.remove("error");
+
+  let base;
+  try {
+    base = currentBaseSample();
+  } catch (err) {
+    statusEl.classList.add("error");
+    statusEl.textContent = err.message || String(err);
+    return;
+  }
+
+  const baseCount = base.starts.length;
+  if (!baseCount) {
+    statusEl.classList.add("error");
+    statusEl.textContent = "The current data-source selection contains no representative sequences.";
+    return;
+  }
+
+  const a = await analyzeStarts(base.starts, base.cacheKey, token, base.rows);
+  if (!a || token !== buildToken) return;
+
+  const selected = [];
+  let totalSegments = 0;
+  let selectedMaxSteps = 0;
+
+  for (let i = 0; i < baseCount; i++) {
+    const m = a.metrics[i];
+    if (m.steps >= minSteps && m.relative >= minRelative && m.unique >= minUnique) {
+      selected.push(i);
+      totalSegments += m.steps;
+      if (m.steps > selectedMaxSteps) selectedMaxSteps = m.steps;
+    }
+  }
+
+  $("sequenceCount").textContent =
+    selected.length === baseCount
+      ? baseCount.toLocaleString()
+      : `${selected.length.toLocaleString()} / ${baseCount.toLocaleString()}`;
+  $("segmentCount").textContent = totalSegments.toLocaleString();
+  $("maxSteps").textContent = selectedMaxSteps.toLocaleString();
+
+  if (selected.length === 0) {
+    if (geometry) geometry.dispose();
+    if (lineObject) scene.remove(lineObject);
+    if (pointObject) scene.remove(pointObject);
+    geometry = lineObject = pointObject = null;
+    fittedSphere = null;
+    statusEl.textContent = "No sequence passes the current filters.";
+    return;
+  }
+
+  statusEl.textContent =
+    `Building ${selected.length.toLocaleString()} filtered paths · ${totalSegments.toLocaleString()} segments…`;
+
+  // v4 colour pre-pass. All quantities are tree properties of the current
+  // base sample (traffic, depth) or exact arithmetic (k); geometry is untouched
+  // unless "Traffic → length" is above zero.
+  const traffic = a.traffic;
+  const logMaxTraffic = Math.log2(Math.max(2, baseCount));
+  const subtreeClass = new Int8Array(selected.length);     // 0 other, 1 odd branch, 2 even branch
+  const subtreeDepth = new Int32Array(selected.length);    // depth of fork node n
+  const subtreeCounts = [0, 0, 0];
+  const redFlag = new Uint8Array(selected.length);         // 1: passes fork m via its odd predecessor
+  const redDepth = new Int32Array(selected.length);        // depth of fork node m
+  let redCount = 0;
+  // Deep shared branches: fully tinted once an edge is at least DEEP_DEPTH steps
+  // from 1 and used by at least 2^DEEP_LOG2_TRAFFIC selected trajectories.
+  const DEEP_DEPTH = 300, DEEP_LOG2_TRAFFIC = 4;
+
+  if (colorMode === "subtree") {
+    for (let si = 0; si < selected.length; si++) {
+      const seq = a.seqs[selected[si]];
+      const idx = seq.indexOf(subtreeN);
+      if (idx > 0) {
+        subtreeClass[si] = (seq[idx - 1] & 1n) === 1n ? 1 : 2;
+        subtreeDepth[si] = seq.length - 1 - idx;
+      }
+      subtreeCounts[subtreeClass[si]]++;
+      if (subtreeM !== null) {
+        const im = seq.indexOf(subtreeM);
+        if (im > 0 && (seq[im - 1] & 1n) === 1n) { redFlag[si] = 1; redDepth[si] = seq.length - 1 - im; redCount++; }
+      }
+    }
+  }
+
+  const positions = new Float32Array(totalSegments * 6);
+  const colors = new Uint8Array(totalSegments * 6);
+
+  let p = 0;
+  let c = 0;
+  const LOG2_3 = Math.log2(3);
+
+  for (let si = 0; si < selected.length; si++) {
+    const idx = selected[si];
+    const seq = a.seqs[idx];
+    let px = 0, py = 0, pz = 0;
+    const frame = new THREE.Quaternion();
+
+    // k class per node: every node of a Syracuse block (odd n, 3n+1 and its
+    // halvings) carries k = v2(3n+1) of that block; a leading even prefix has 0.
+    let blockK = null;
+    if (colorMode === "kclass") {
+      blockK = new Uint8Array(seq.length);
+      let k = 0;
+      for (let j = 0; j < seq.length; j++) {
+        if ((seq[j] & 1n) === 1n && j + 1 < seq.length) k = Math.min(255, v2(seq[j + 1]));
+        blockK[j] = k;
+      }
+    }
+
+    // Draw from 1 back toward the original starting value.
+    for (let jj = seq.length - 2, depth = 1; jj >= 0; jj--, depth++) {
+      const node = seq[jj];
+      const odd = (node & 1n) === 1n;
+      const turn = odd ? -oddTurn : evenTurn;
+
+      if (rule === "flat") {
+        tempQ.setFromAxisAngle(AXIS_Z, turn);
+        frame.multiply(tempQ);
+
+      } else if (rule === "xyz") {
+        // Purely geometric comparison mode.
+        const phase = (depth - 1) % 3;
+        const axis = phase === 0 ? AXIS_Z : (phase === 1 ? AXIS_Y : AXIS_X);
+        tempQ.setFromAxisAngle(axis, turn);
+        frame.multiply(tempQ);
+
+      } else if (rule === "drift") {
+        // The planar left/right turn shows ordinary parity.
+        tempQ.setFromAxisAngle(AXIS_Z, turn);
+        frame.multiply(tempQ);
+
+        // One 3D kick for each accelerated odd->odd Syracuse block.
+        if (odd) {
+          const { k } = syracuseInfo(node);
+          const drift = clamp(LOG2_3 - k, -3.0, 1.0);
+          tempQ.setFromAxisAngle(AXIS_Y, pitchScale * drift);
+          frame.multiply(tempQ);
+        }
+
+      } else if (rule === "word") {
+        // A two-symbol Syracuse word:
+        // k1 controls pitch, k2 controls roll of the local bending plane.
+        tempQ.setFromAxisAngle(AXIS_Z, turn);
+        frame.multiply(tempQ);
+
+        if (odd) {
+          const s1 = syracuseInfo(node);
+          const s2 = syracuseInfo(s1.next);
+
+          const pitch = pitchScale * clamp(s1.k - 2, -1.0, 3.0);
+          const roll  = pitchScale * clamp(s2.k - 2, -1.0, 3.0);
+
+          tempQ.setFromAxisAngle(AXIS_Y, pitch);
+          frame.multiply(tempQ);
+
+          // Roll does not change the current forward vector, but changes
+          // the bending plane used by subsequent Collatz steps.
+          tempQ.setFromAxisAngle(AXIS_X, roll);
+          frame.multiply(tempQ);
+        }
+
+      } else if (rule === "mod8") {
+        // Explicitly expose the three natural odd residue families mod 8.
+        tempQ.setFromAxisAngle(AXIS_Z, turn);
+        frame.multiply(tempQ);
+
+        if (odd) {
+          const family = mod8FamilyFactor(node);
+          tempQ.setFromAxisAngle(AXIS_Y, pitchScale * family);
+          frame.multiply(tempQ);
+        }
+
+      } else if (rule === "inv3") {
+        // Use a genuine 3-adic inverse-tree statistic:
+        // after an odd Syracuse step, the next odd value is a unit mod 3.
+        // Its residue mod 3^6 determines the depth-5 pruned inverse-tree
+        // leaf count. Positive deviation = richer-than-average inverse tree.
+        tempQ.setFromAxisAngle(AXIS_Z, turn);
+        frame.multiply(tempQ);
+
+        if (odd) {
+          const { next } = syracuseInfo(node);
+          const dev = clamp(inverse3Deviation(next), -1.25, 1.25);
+          tempQ.setFromAxisAngle(AXIS_Y, pitchScale * 2.0 * dev);
+          frame.multiply(tempQ);
+        }
+
+      } else if (rule === "hybrid23") {
+        // Two independent arithmetic coordinates:
+        // 2-adic mod-8 family -> pitch
+        // 3-adic inverse-tree deviation -> roll of the future bending plane.
+        tempQ.setFromAxisAngle(AXIS_Z, turn);
+        frame.multiply(tempQ);
+
+        if (odd) {
+          const { next } = syracuseInfo(node);
+
+          const family = mod8FamilyFactor(node);
+          tempQ.setFromAxisAngle(AXIS_Y, pitchScale * family);
+          frame.multiply(tempQ);
+
+          const dev = clamp(inverse3Deviation(next), -1.25, 1.25);
+          tempQ.setFromAxisAngle(AXIS_X, pitchScale * 2.0 * dev);
+          frame.multiply(tempQ);
+        }
+
+      } else {
+        // Existing "Parity + v2 pitch" mode:
+        // v2 on an even node is its remaining /2-run length;
+        // v2(3n+1) on an odd node is the forced /2-run after the 3n+1 step.
+        tempQ.setFromAxisAngle(AXIS_Z, turn);
+        frame.multiply(tempQ);
+
+        let k;
+        if (odd) k = v2(3n * node + 1n);
+        else k = v2(node);
+
+        const pitch = pitchScale * clamp(k - 2, -1.0, 3.0);
+        if (pitch !== 0) {
+          tempQ.setFromAxisAngle(AXIS_Y, pitch);
+          frame.multiply(tempQ);
+        }
+      }
+
+      dir.copy(FORWARD).applyQuaternion(frame);
+      const nodeTraffic = traffic.get(node) || 1;
+      let len = segmentLength(node, falloff);
+      if (trafficLengthGain > 0 && nodeTraffic > 1) len *= 1 + trafficLengthGain * Math.log2(nodeTraffic);
+      const nx = px + dir.x * len;
+      const ny = py + dir.y * len;
+      const nz = pz + dir.z * len;
+
+      positions[p++] = px; positions[p++] = py; positions[p++] = pz;
+      positions[p++] = nx; positions[p++] = ny; positions[p++] = nz;
+
+      let rgb = colorFor(node, odd);
+      if (tintStrength > 0 && colorMode !== "magnitude") {
+        if (colorMode === "subtree") {
+          const cls = subtreeClass[si];
+          if (redFlag[si] && depth > redDepth[si]) rgb = tint(rgb, TINT.red, tintStrength);
+          else if (cls && depth > subtreeDepth[si]) rgb = tint(rgb, cls === 1 ? TINT.oddBranch : TINT.evenBranch, tintStrength);
+        } else if (colorMode === "traffic") {
+          const t = Math.log2(nodeTraffic) / logMaxTraffic;
+          rgb = dim(rgb, 1 - tintStrength * (1 - Math.min(1, t)));
+        } else if (colorMode === "deep") {
+          if (nodeTraffic > 1) {
+            const amount = Math.min(1, depth / DEEP_DEPTH) * Math.min(1, Math.log2(nodeTraffic) / DEEP_LOG2_TRAFFIC);
+            rgb = tint(rgb, TINT.deep, tintStrength * amount * amount);
+          }
+        } else if (colorMode === "kclass") {
+          const k = blockK[jj];
+          if (k === 1) rgb = tint(rgb, TINT.k1, tintStrength);
+          else if (k >= 3) rgb = tint(rgb, TINT.k3, tintStrength);
+        }
+      }
+      colors[c++] = rgb[0]; colors[c++] = rgb[1]; colors[c++] = rgb[2];
+      colors[c++] = rgb[0]; colors[c++] = rgb[1]; colors[c++] = rgb[2];
+
+      px = nx; py = ny; pz = nz;
+    }
+
+    if ((si & 63) === 63) {
+      statusEl.textContent =
+        `Building filtered paths… ${Math.round((si + 1) * 100 / selected.length)}%`;
+      await new Promise(requestAnimationFrame);
+      if (token !== buildToken) return;
+    }
+  }
+
+  if (token !== buildToken) return;
+
+  if (geometry) geometry.dispose();
+  if (lineObject) scene.remove(lineObject);
+  if (pointObject) scene.remove(pointObject);
+
+  geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Uint8BufferAttribute(colors, 3, true));
+  geometry.computeBoundingSphere();
+
+  lineObject = new THREE.LineSegments(geometry, lineMaterial);
+  scene.add(lineObject);
+
+  pointObject = new THREE.Points(geometry, pointMaterial);
+  pointObject.visible = $("sparks").checked && Number($("pointSize").value) > 0;
+  scene.add(pointObject);
+
+  fittedSphere = geometry.boundingSphere.clone();
+  if (options.preserveCamera) updateFog();
+  else fitCamera();
+
+  const ruleName =
+    rule === "v2" ? "parity + v₂ pitch" :
+    rule === "drift" ? "Syracuse drift" :
+    rule === "word" ? "Syracuse word (k₁,k₂)" :
+    rule === "mod8" ? "2-adic mod-8 classes" :
+    rule === "inv3" ? "3-adic inverse branching" :
+    rule === "hybrid23" ? "2×3-adic hybrid" :
+    rule === "xyz" ? "cyclic X/Y/Z" : "flat Wolfram-like";
+
+  const sourceSuffix = base.source === "dataset"
+    ? ` · jointHist rows ${base.rowCount.toLocaleString()} (${base.pick === "min" ? "min_start" : base.pick === "max" ? "max_growth_start" : "both"}) · represented count ${formatBigInt(base.representedCount)}` +
+      (a.csvMismatchCount ? ` · WARNING: ${a.csvMismatchCount} CSV metric mismatches` : ` · CSV metrics verified`)
+    : ` · embedded random sample`;
+
+  statusEl.textContent =
+    `${selected.length.toLocaleString()} of ${baseCount.toLocaleString()} sequences · ` +
+    `${totalSegments.toLocaleString()} segments · ${ruleName} · ` +
+    `min steps ${minSteps}, min relative ${minRelative.toFixed(2)}, min unique branch ${minUnique}` +
+    sourceSuffix +
+    (colorMode === "subtree"
+      ? ` · fork ${subtreeN}: odd branch ${subtreeCounts[1].toLocaleString()}, even branch ${subtreeCounts[2].toLocaleString()}, other ${subtreeCounts[0].toLocaleString()}` +
+        (subtreeM !== null ? ` · fork ${subtreeM}: odd branch (red) ${redCount.toLocaleString()}` : ``)
+      : colorMode !== "magnitude" ? ` · color by ${colorMode}` : ``) +
+    (trafficLengthGain > 0 ? ` · traffic → length ${trafficLengthGain.toFixed(2)}` : ``) + `.`;
+}
+
+// Saved views contain display state only; the current dataset remains separate.
+const VIEW_SETTINGS = [
+  "sampleCount", "minSteps", "minRelative", "minUnique", "ruleMode",
+  "evenAngle", "oddAngle", "pitchAngle", "falloff", "opacity", "pointSize",
+  "fogStrength", "autorotate", "fog", "bloom", "sparks",
+  "colorMode", "subtreeN", "tintStrength", "trafficLength"
+];
+// v4 fields are optional in views saved by v3; these defaults reproduce the v3 image.
+const VIEW_DEFAULTS = { colorMode: "magnitude", subtreeN: "40", tintStrength: "0.7", trafficLength: "0" };
+let savedViews = [];
+let viewFrozen = false;
+let viewBuildBusy = false;
+let loadingView = false;
+let uniqueViewCounter = 0;
+let viewIOBusy = false;
+let savesFolder = null;
+let folderNeedsPermission = false;
+
+function viewMessage(message, error = false) {
+  $("viewMessage").textContent = message;
+  $("viewMessage").classList.toggle("error", error);
+}
+
+function updateViewButtons() {
+  $("saveView").disabled = viewBuildBusy || loadingView || viewIOBusy || !geometry;
+  $("loadView").disabled = viewBuildBusy || loadingView || viewIOBusy || !savedViews.length;
+  $("savedViews").disabled = loadingView || viewIOBusy || !savedViews.length;
+  $("loadSavedViews").disabled = viewIOBusy;
+  $("chooseSavesFolder").disabled = viewIOBusy;
+}
+
+function refreshViewList(selectedId = $("savedViews").value) {
+  const select = $("savedViews");
+  select.replaceChildren();
+  if (!savedViews.length) {
+    const option = document.createElement("option");
+    option.textContent = "No saved views";
+    option.value = "";
+    select.appendChild(option);
+  }
+  for (const view of savedViews) {
+    const option = document.createElement("option");
+    option.value = view.id;
+    option.textContent = view.name;
+    option.title = view.name;
+    select.appendChild(option);
+  }
+  if (savedViews.some(view => view.id === selectedId)) select.value = selectedId;
+  select.title = select.selectedOptions[0]?.textContent || "Saved views";
+  updateViewButtons();
+}
+
+function uniqueViewId() {
+  const suffix = globalThis.crypto?.randomUUID?.() ||
+    `${Date.now().toString(36)}-${(++uniqueViewCounter).toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `view-${suffix}`;
+}
+
+function viewName(date, id) {
+  const pad = (value, length = 2) => String(value).padStart(length, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(),3)} · ${id.slice(-8)}`;
+}
+
+function captureView() {
+  const id = uniqueViewId();
+  const date = new Date();
+  const settings = {};
+  for (const key of VIEW_SETTINGS) {
+    const element = $(key);
+    settings[key] = element.type === "checkbox" ? element.checked : element.value;
+  }
+  return {
+    id, name: viewName(date, id), createdAt: date.toISOString(), settings,
+    camera: {
+      position: camera.position.toArray(), quaternion: camera.quaternion.toArray(),
+      up: camera.up.toArray(), fov: camera.fov, near: camera.near, far: camera.far,
+      zoom: camera.zoom, focus: camera.focus, aspect: camera.aspect,
+      filmGauge: camera.filmGauge, filmOffset: camera.filmOffset
+    },
+    orbit: {
+      target: controls.target.toArray(), minDistance: controls.minDistance,
+      maxDistance: controls.maxDistance, autoRotateSpeed: controls.autoRotateSpeed,
+      enableDamping: controls.enableDamping, dampingFactor: controls.dampingFactor,
+      zoomToCursor: controls.zoomToCursor
+    },
+    renderer: { exposure: renderer.toneMappingExposure, toneMapping: renderer.toneMapping,
+      pixelRatio: renderer.getPixelRatio() },
+    viewport: { width: innerWidth, height: innerHeight }
+  };
+}
+
+function validateSavedView(raw) {
+  const fail = message => { throw new Error(`Invalid saved view: ${message}`); };
+  const finite = (value, name, min = -1e15, max = 1e15) => {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) fail(name);
+    return value;
+  };
+  const vector = (value, length, name) => {
+    if (!Array.isArray(value) || value.length !== length) fail(name);
+    return value.map(x => finite(x, name));
+  };
+  if (!raw || typeof raw !== "object" || typeof raw.id !== "string" || !raw.id.length || raw.id.length > 180 ||
+      typeof raw.name !== "string" || !raw.name.length || raw.name.length > 200 ||
+      typeof raw.createdAt !== "string" || !Number.isFinite(Date.parse(raw.createdAt))) fail("identity");
+  const settings = {};
+  for (const key of VIEW_SETTINGS) {
+    const element = $(key);
+    let value = raw.settings?.[key];
+    if (value === undefined && key in VIEW_DEFAULTS) value = VIEW_DEFAULTS[key];
+    if (element.type === "checkbox") {
+      if (typeof value !== "boolean") fail(key);
+      settings[key] = value;
+    } else if (element.tagName === "SELECT") {
+      if (typeof value !== "string" || ![...element.options].some(option => option.value === value)) fail(key);
+      settings[key] = value;
+    } else if (key === "subtreeN") {
+      // v6: fork list "n" or "n,m" (text field, not a number)
+      if (typeof value !== "string" || value.length > 64 || !/^[0-9,\s]*$/.test(value) || !/[1-9]/.test(value)) fail(key);
+      settings[key] = value;
+    } else {
+      if (typeof value !== "string" || !value.trim() || !Number.isFinite(Number(value))) fail(key);
+      const upper = key === "minSteps" ? 10000 : Number(element.max);
+      finite(Number(value), key, Number(element.min), upper);
+      const probe = element.cloneNode();
+      if (key === "minSteps") probe.max = String(Math.max(Number(element.max), Number(value)));
+      probe.value = value;
+      if (Math.abs(Number(probe.value)-Number(value)) > 1e-8) fail(`${key} step`);
+      settings[key] = value;
+    }
+  }
+  // Saved views always stop rotation: loading must reproduce a stationary view.
+  if (settings.autorotate) fail("Auto rotate must be off");
+  const c = raw.camera, o = raw.orbit, r = raw.renderer, v = raw.viewport;
+  if (!c || !o || !r || !v) fail("missing camera, orbit, renderer or viewport");
+  const position = vector(c.position,3,"camera position"), quaternion = vector(c.quaternion,4,"camera quaternion"), up = vector(c.up,3,"camera up");
+  if (Math.abs(Math.hypot(...quaternion)-1) > 1e-5 || Math.hypot(...up)<.1) fail("camera orientation");
+  const cameraState = {
+    position, quaternion, up,
+    fov:finite(c.fov,"fov",.01,179), near:finite(c.near,"near",1e-8),
+    far:finite(c.far,"far",1e-8), zoom:finite(c.zoom,"zoom",1e-8),
+    focus:finite(c.focus,"focus",1e-8), aspect:finite(c.aspect,"aspect",1e-8),
+    filmGauge:finite(c.filmGauge,"film gauge",1e-8), filmOffset:finite(c.filmOffset,"film offset")
+  };
+  if (cameraState.far <= cameraState.near) fail("clipping range");
+  const orbit = {
+    target:vector(o.target,3,"orbit target"), minDistance:finite(o.minDistance,"min distance",0),
+    maxDistance:finite(o.maxDistance,"max distance",1e-8),
+    autoRotateSpeed:finite(o.autoRotateSpeed,"rotation speed",-100,100),
+    dampingFactor:finite(o.dampingFactor,"damping",0,1),
+    enableDamping:o.enableDamping, zoomToCursor:o.zoomToCursor
+  };
+  if (orbit.maxDistance < orbit.minDistance || typeof o.enableDamping !== "boolean" || typeof o.zoomToCursor !== "boolean") fail("orbit controls");
+  return {
+    id:raw.id, name:raw.name, createdAt:raw.createdAt, settings, camera:cameraState, orbit,
+    renderer:{ exposure:finite(r.exposure,"exposure",.001,100), toneMapping:finite(r.toneMapping,"tone mapping",0,20), pixelRatio:finite(r.pixelRatio,"pixel ratio",.1,4) },
+    viewport:{ width:finite(v.width,"viewport width",1,100000), height:finite(v.height,"viewport height",1,100000) }
+  };
+}
+
+function parseViewLibrary(text) {
+  const raw = JSON.parse(text);
+  if (raw?.format !== "collatz-anglepath-views" || raw.version !== 1 || !Array.isArray(raw.views) || raw.views.length > 1000) {
+    throw new Error("Please choose a saved Collatz views JSON file (up to 1,000 views).");
+  }
+  return raw.views.map(validateSavedView);
+}
+
+function setCameraState(state) {
+  camera.position.fromArray(state.position);
+  camera.quaternion.fromArray(state.quaternion);
+  camera.up.fromArray(state.up);
+  for (const key of ["fov","near","far","zoom","focus","filmGauge","filmOffset"]) camera[key] = state[key];
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+}
+
+function resetOrbitForView(view) {
+  // A fresh controller removes residual drag/zoom damping without moving the
+  // camera. Re-applying the exact pose also avoids spherical round-trip drift.
+  controls.dispose();
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.fromArray(view.orbit.target);
+  for (const key of ["minDistance","maxDistance","autoRotateSpeed","enableDamping","dampingFactor","zoomToCursor"]) controls[key] = view.orbit[key];
+  controls.autoRotate = false;
+  bindViewInteraction();
+  setCameraState(view.camera);
+  viewFrozen = true;
+}
+
+function bindViewInteraction() {
+  controls.addEventListener("start", () => { viewFrozen = false; });
+}
+
+function viewFileName(view) {
+  return `collatz-view_${view.createdAt.replace(/[-:.]/g,"")}_${view.id}.json`;
+}
+
+function viewFileContents(view) {
+  // One view per file; old multi-view files remain readable.
+  return JSON.stringify({format:"collatz-anglepath-views",version:1,views:[view]},null,2);
+}
+
+function downloadViewFile(view) {
+  const blob = new Blob([viewFileContents(view)],{type:"application/json"});
+  const url = URL.createObjectURL(blob), link = document.createElement("a");
+  link.href = url; link.download = viewFileName(view); link.click();
+  setTimeout(() => URL.revokeObjectURL(url),1000);
+}
+
+function folderHandleStore(mode, handle) {
+  return new Promise((resolve,reject) => {
+    const open = indexedDB.open("collatz-view-folders",1);
+    open.onupgradeneeded = () => open.result.createObjectStore("handles");
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result, transaction = db.transaction("handles",mode);
+      const store = transaction.objectStore("handles");
+      const request = mode === "readwrite" ? store.put(handle,"saves") : store.get("saves");
+      transaction.oncomplete = () => { const result = request.result; db.close(); resolve(result); };
+      transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error || new Error("Folder storage unavailable")); };
+    };
+  });
+}
+
+function updateFolderLabel() {
+  const native = typeof window.showDirectoryPicker === "function";
+  $("chooseSavesFolder").textContent = folderNeedsPermission ? "Reconnect Saves…" : "Saves folder…";
+  $("chooseSavesFolder").title = native ? "Choose a folder for reading and directly saving views" : "Read views from a folder. Saving uses your browser's download settings.";
+  $("saveLocation").textContent = savesFolder && !folderNeedsPermission ? `Save to: ${savesFolder.name}` : "Save to: browser dialog/settings";
+  $("saveLocation").title = savesFolder && !folderNeedsPermission ? "New view files are written directly to this folder." : "Firefox: Settings → General → Files and Applications → Downloads → Always ask you where to save files. Choose the Saves folder when saving.";
+}
+
+async function writeViewFile(view) {
+  if (savesFolder) {
+    const options = {mode:"readwrite"};
+    let permission = await savesFolder.queryPermission(options);
+    if (permission !== "granted") permission = await savesFolder.requestPermission(options);
+    if (permission !== "granted") {
+      folderNeedsPermission = true; updateFolderLabel();
+      throw new Error("Folder access denied. Choose or reconnect your Saves folder.");
+    }
+    folderNeedsPermission = false; updateFolderLabel();
+    // A full UUID in each filename prevents overwriting previous view files.
+    let name = viewFileName(view), file = null;
+    try { await savesFolder.getFileHandle(name); }
+    catch (error) { if (error.name !== "NotFoundError") throw error; file = await savesFolder.getFileHandle(name,{create:true}); }
+    if (!file) {
+      name = name.replace(/\.json$/,`_${uniqueViewId()}.json`);
+      file = await savesFolder.getFileHandle(name,{create:true});
+    }
+    const stream = await file.createWritable();
+    try { await stream.write(viewFileContents(view)); await stream.close(); }
+    catch (error) { try { await stream.abort(); } catch {} throw error; }
+    return {kind:"folder",message:`Saved to ${savesFolder.name}`};
+  }
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const file = await window.showSaveFilePicker({
+        id:"collatz-saves", suggestedName:viewFileName(view),
+        types:[{description:"Collatz saved view",accept:{"application/json":[".json"]}}]
+      });
+      const stream = await file.createWritable();
+      try { await stream.write(viewFileContents(view)); await stream.close(); }
+      catch (error) { try { await stream.abort(); } catch {} throw error; }
+      return {kind:"file",file,message:"View saved to chosen file"};
+    } catch (error) {
+      if (error.name !== "SecurityError") throw error;
+      // Embedded/restricted contexts may expose a picker but disallow its use.
+    }
+  }
+  downloadViewFile(view);
+  return {kind:"download",message:"View exported · re-read Saves folder to update list"};
+}
+
+async function saveCurrentView() {
+  if (viewBuildBusy || loadingView || viewIOBusy || !geometry) return;
+  $("autorotate").checked = false;
+  controls.autoRotate = false;
+  viewFrozen = true;
+  viewIOBusy = true; updateViewButtons();
+  try {
+    const view = validateSavedView(captureView());
+    resetOrbitForView(view); renderScene();
+    const result = await writeViewFile(view);
+    if (result.kind === "folder") {
+      await readNativeViewFolder(view.id);
+    } else if (result.kind === "file") {
+      await importViewFiles([await result.file.getFile()],view.id);
+    }
+    // A browser download does not confirm where (or whether) a file was saved.
+    // Only reading that file/folder may add it to the visible list.
+    viewMessage(result.message);
+  } catch (error) {
+    viewMessage(error.name === "AbortError" ? "File save cancelled · no view added" : `Could not finish saving · ${error.message || error}`,error.name !== "AbortError");
+  } finally { viewIOBusy = false; updateViewButtons(); }
+}
+
+function replaceSavedViews(imported, selectedId = $("savedViews").value) {
+  const next = [];
+  const byId = new Map();
+  for (const candidate of imported) {
+    let view = candidate;
+    const existing = byId.get(view.id);
+    if (existing && JSON.stringify(existing) === JSON.stringify(view)) continue;
+    if (existing) {
+      // Distinguish conflicting IDs without generating a new random entry on
+      // every scan. Source files are never modified by this disambiguation.
+      let suffix = 1;
+      const prefix = view.id.slice(0,160);
+      while (byId.has(`${prefix}:file-${suffix}`)) suffix++;
+      view = {...view,id:`${prefix}:file-${suffix}`,name:`${view.name.slice(0,170)} · file ${suffix+1}`};
+    }
+    next.push(view); byId.set(view.id,view);
+    if (next.length > 1000) throw new Error("Too many saved views (maximum 1,000).");
+  }
+  savedViews = next;
+  refreshViewList(selectedId);
+  return next.length;
+}
+
+async function importViewFiles(files, selectedId = $("savedViews").value) {
+  // This is a new directory/file snapshot, never an extension of an old list.
+  replaceSavedViews([]);
+  const jsonFiles = Array.from(files).filter(file => file.name.toLowerCase().endsWith(".json"))
+    .sort((a,b) => a.name.localeCompare(b.name));
+  if (jsonFiles.length > 1000) throw new Error("Too many files; choose up to 1,000 JSON view files.");
+  const imported = []; let skipped = 0;
+  for (const file of jsonFiles) {
+    try {
+      if (file.size > 10*1024*1024) throw new Error("File too large");
+      imported.push(...parseViewLibrary(await file.text()));
+    } catch { skipped++; }
+    if (imported.length > 10000) throw new Error("Too many entries in the selected files.");
+  }
+  const count = replaceSavedViews(imported,selectedId);
+  if (!count && skipped) throw new Error("No valid Collatz views in the selected files. List cleared.");
+  viewMessage(`${count} views loaded${skipped ? ` · ${skipped} files skipped` : ""}${count ? " · select and Load" : " · no view files found"}`);
+  return count;
+}
+
+async function importSavedViews() {
+  const files = $("viewsFile").files;
+  if (!files?.length || viewIOBusy) return;
+  viewIOBusy = true; updateViewButtons();
+  try { await importViewFiles(files); }
+  catch (error) { viewMessage(error.message || String(error),true); }
+  finally { $("viewsFile").value = ""; viewIOBusy = false; updateViewButtons(); }
+}
+
+async function readNativeViewFolder(selectedId = $("savedViews").value) {
+  replaceSavedViews([]);
+  const files = [];
+  for await (const entry of savesFolder.values()) {
+    if (entry.kind === "file" && entry.name.toLowerCase().endsWith(".json")) {
+      try { files.push(await entry.getFile()); }
+      catch (error) { if (error.name !== "NotFoundError") throw error; }
+    }
+  }
+  return importViewFiles(files,selectedId);
+}
+
+async function chooseSavesFolder() {
+  if (viewIOBusy) return;
+  if (typeof window.showDirectoryPicker !== "function") {
+    viewMessage("Choose Saves to refresh its view list. Saving uses browser settings.");
+    $("viewsFolder").click(); return;
+  }
+  viewIOBusy = true; updateViewButtons();
+  try {
+    if (savesFolder && folderNeedsPermission) {
+      const permission = await savesFolder.requestPermission({mode:"readwrite"});
+      if (permission !== "granted") throw new Error("Folder permission was not granted.");
+    } else {
+      const options = {id:"collatz-saves",mode:"readwrite"};
+      if (savesFolder) options.startIn = savesFolder;
+      savesFolder = await window.showDirectoryPicker(options);
+    }
+    folderNeedsPermission = false; updateFolderLabel();
+    try { await folderHandleStore("readwrite",savesFolder); } catch {}
+    const count = await readNativeViewFolder();
+    viewMessage(`${count} views in ${savesFolder.name} · list refreshed`);
+  } catch (error) { viewMessage(error.name === "AbortError" ? "Folder selection cancelled" : error.message,error.name !== "AbortError"); }
+  finally { viewIOBusy = false; updateViewButtons(); }
+}
+
+async function importViewFolder() {
+  if (viewIOBusy) return;
+  const files = Array.from($("viewsFolder").files || []);
+  viewIOBusy = true; updateViewButtons();
+  try {
+    // Match the native picker: read only files directly inside the folder.
+    const rootFiles = files.filter(file => !file.webkitRelativePath || file.webkitRelativePath.split("/").length === 2);
+    const count = await importViewFiles(rootFiles);
+    const name = files[0]?.webkitRelativePath.split("/")[0] || "selected folder";
+    $("saveLocation").textContent = `Read: ${name} · save via browser`;
+    viewMessage(`${count} views in ${name} · list refreshed`);
+  } catch (error) { viewMessage(error.message || String(error),true); }
+  finally { $("viewsFolder").value = ""; viewIOBusy = false; updateViewButtons(); }
+}
+
+async function restoreSavesFolder() {
+  if (typeof window.showDirectoryPicker !== "function") return;
+  try {
+    const handle = await folderHandleStore("readonly");
+    if (!handle) return;
+    savesFolder = handle;
+    folderNeedsPermission = await handle.queryPermission({mode:"readwrite"}) !== "granted";
+    updateFolderLabel();
+    if (!folderNeedsPermission && !viewIOBusy) {
+      viewIOBusy = true; updateViewButtons();
+      try { await readNativeViewFolder(); }
+      finally { viewIOBusy = false; updateViewButtons(); }
+    }
+  } catch (error) { viewMessage(`Read Saves folder again · ${error.message || error}`,true); }
+}
+
+function applyViewSettings(view) {
+  for (const key of VIEW_SETTINGS) {
+    const element = $(key), value = view.settings[key];
+    if (key === "minSteps") element.max = String(Math.max(Number(element.max),Number(value)));
+    if (element.type === "checkbox") element.checked = value;
+    else element.value = value;
+  }
+  updateLabels();
+  updateRuleDescription();
+  lineMaterial.opacity = Number($("opacity").value);
+  pointMaterial.size = Number($("pointSize").value);
+  renderer.toneMappingExposure = view.renderer.exposure;
+  renderer.toneMapping = view.renderer.toneMapping;
+  renderer.setPixelRatio(view.renderer.pixelRatio);
+  composer.setPixelRatio(view.renderer.pixelRatio);
+  updateSourceUI();
+}
+
+async function loadSelectedView() {
+  const selected = savedViews.find(view => view.id === $("savedViews").value);
+  if (!selected || viewBuildBusy || loadingView || viewIOBusy) return;
+  const view = validateSavedView(selected);
+  loadingView = true;
+  viewFrozen = true;
+  controls.autoRotate = false;
+  controls.enabled = false;
+  updateViewButtons();
+  viewMessage("Loading view…");
+  try {
+    applyViewSettings(view);
+    const expectedBuild = buildToken + 1;
+    await rebuild({preserveCamera:true});
+    if (buildToken !== expectedBuild) throw new Error("View loading interrupted by a newer change. Please load again.");
+    if (statusEl.classList.contains("error")) throw new Error(statusEl.textContent);
+    resetOrbitForView(view);
+    if (pointObject) pointObject.visible = $("sparks").checked && pointMaterial.size > 0;
+    updateFog();
+    renderScene();
+    viewMessage("View loaded · Auto rotate off");
+  } catch (error) {
+    controls.enabled = true;
+    viewMessage(error.message || String(error),true);
+  } finally {
+    loadingView = false;
+    updateViewButtons();
+  }
+}
+
+function initializeSavedViews() {
+  bindViewInteraction();
+  // The dropdown is a snapshot of explicitly read files, not browser history.
+  savedViews = [];
+  refreshViewList();
+  viewMessage("Choose Saves folder or Load saved Views…");
+  $("saveView").addEventListener("click",saveCurrentView);
+  $("loadView").addEventListener("click",loadSelectedView);
+  $("loadSavedViews").addEventListener("click",() => $("viewsFile").click());
+  $("viewsFile").addEventListener("change",importSavedViews);
+  $("chooseSavesFolder").addEventListener("click",chooseSavesFolder);
+  $("viewsFolder").addEventListener("change",importViewFolder);
+  updateFolderLabel();
+  restoreSavesFolder();
+  $("savedViews").addEventListener("change",() => { $("savedViews").title = $("savedViews").selectedOptions[0]?.textContent || "Saved views"; });
+}
+
+async function rebuild(options = {}) {
+  const expectedBuild = buildToken + 1;
+  viewBuildBusy = true;
+  updateViewButtons();
+  try { return await rebuildGeometry(options); }
+  finally {
+    if (buildToken === expectedBuild) {
+      viewBuildBusy = false;
+      updateViewButtons();
+    }
+  }
+}
+
+
+function fitCamera() {
+  viewFrozen = false;
+  if (!fittedSphere) return;
+  const r = Math.max(2, fittedSphere.radius);
+  const center = fittedSphere.center;
+  controls.target.copy(center);
+
+  const fov = camera.fov * DEG;
+  const dist = r / Math.sin(fov / 2) * 1.12;
+  camera.position.set(
+    center.x + dist * 0.66,
+    center.y + dist * 0.46,
+    center.z + dist * 0.72
+  );
+  camera.near = Math.max(0.01, dist / 10000);
+  camera.far = dist * 8;
+  camera.updateProjectionMatrix();
+  controls.minDistance = r * 0.08;
+  controls.maxDistance = r * 14;
+  controls.update();
+
+  updateFog();
+}
+
+function updateFog() {
+  if (!$("fog").checked || !fittedSphere) {
+    scene.fog = null;
+    return;
+  }
+  const strength = Number($("fogStrength").value);
+  const r = Math.max(fittedSphere.radius, 1);
+  scene.fog = new THREE.FogExp2(0x020307, strength * 0.55 / r);
+}
+
+function renderScene() {
+  if ($("bloom").checked) composer.render();
+  else renderer.render(scene, camera);
+}
+
+function updateLabels() {
+  $("evenVal").textContent = Number($("evenAngle").value).toFixed(1) + "°";
+  $("oddVal").textContent = Number($("oddAngle").value).toFixed(1) + "°";
+  $("pitchVal").textContent = Number($("pitchAngle").value).toFixed(1) + "°";
+  $("falloffVal").textContent = Number($("falloff").value).toFixed(3);
+  $("opacityVal").textContent = Number($("opacity").value).toFixed(3);
+  $("pointVal").textContent = Number($("pointSize").value).toFixed(1);
+  $("minStepsVal").textContent = Number($("minSteps").value).toFixed(0);
+  $("minRelativeVal").textContent = Number($("minRelative").value).toFixed(2);
+  $("minUniqueVal").textContent = Number($("minUnique").value).toFixed(0);
+  $("fogStrengthVal").textContent = Number($("fogStrength").value).toFixed(2) + "×";
+  $("tintVal").textContent = Number($("tintStrength").value).toFixed(2);
+  $("trafficLengthVal").textContent = Number($("trafficLength").value).toFixed(2);
+  $("subtreeN").disabled = $("colorMode").value !== "subtree";
+}
+
+for (const id of ["evenAngle","oddAngle","pitchAngle","falloff","tintStrength","trafficLength","colorMode","subtreeN"]) {
+  $(id).addEventListener("input", updateLabels);
+  // Geometry changes must retain a loaded or manually positioned camera.
+  $(id).addEventListener("change", () => rebuild({preserveCamera:true}));
+}
+function updateSourceUI() {
+  const datasetMode = $("sourceMode").value === "dataset";
+  $("sampleCount").disabled = datasetMode;
+  $("tailNRow").style.display = datasetMode ? "" : "none";
+  $("tailN").disabled = !datasetMode;
+  $("startPickRow").style.display = datasetMode ? "" : "none";
+  $("startPick").disabled = !datasetMode;
+
+  if (datasetMode && loadedDataset) {
+    $("datasetInfo").innerHTML =
+      `<strong>${loadedDataset.name}</strong><br>` +
+      `${loadedDataset.rows.length.toLocaleString()} rows · ${loadedDataset.stepGroupCount.toLocaleString()} step lengths · ` +
+      `steps ${loadedDataset.minSteps}…${loadedDataset.maxSteps} · oddsteps ${loadedDataset.minOdd}…${loadedDataset.maxOdd}<br>` +
+      `Σ count = ${formatBigInt(loadedDataset.totalCount)} · currently using highest-oddsteps tail per step length` +
+      ` · ${loadedDataset.sameStartCount.toLocaleString()} rows have min_start = max_growth_start.`;
+  } else if (datasetMode) {
+    $("datasetInfo").innerHTML =
+      `Default source: <strong>jointHist.csv</strong> · N = ${$("tailN").value}.<br>` +
+      `Automatic local-file access was not available. Click <b>Load CSV…</b> to select it.`;
+  } else {
+    $("datasetInfo").innerHTML =
+      `Using the embedded deterministic random uint64 sample.`;
+  }
+}
+
+$("sourceMode").addEventListener("change", () => {
+  updateSourceUI();
+  rebuild();
+});
+
+$("loadDataset").addEventListener("click", () => $("datasetFile").click());
+
+$("datasetFile").addEventListener("change", async () => {
+  const file = $("datasetFile").files && $("datasetFile").files[0];
+  if (!file) return;
+
+  try {
+    statusEl.classList.remove("error");
+    statusEl.textContent = `Reading ${file.name}…`;
+
+    const text = await file.text();
+
+    // Every newly loaded histogram starts with the intentionally selective
+    // default: one highest-oddsteps representative per total step count.
+    $("tailN").value = "1";
+
+    activateLoadedDataset(parseJointHistCSV(text, file.name));
+    updateSourceUI();
+    await rebuild();
+  } catch (err) {
+    console.error(err);
+    statusEl.classList.add("error");
+    statusEl.textContent = `Could not load CSV: ${err?.message || err}`;
+  } finally {
+    // Allow choosing the same file again after editing/replacing it.
+    $("datasetFile").value = "";
+  }
+});
+
+$("startPick").addEventListener("change", () => {
+  if (!loadedDataset || $("sourceMode").value !== "dataset") return;
+  updateSourceUI();
+  rebuild({preserveCamera:true});
+});
+
+$("tailN").addEventListener("change", () => {
+  if (!loadedDataset || $("sourceMode").value !== "dataset") return;
+  let n = Math.floor(Number($("tailN").value));
+  if (!Number.isFinite(n) || n < 0) n = 1;
+  $("tailN").value = String(n);
+  analysisCache.clear();
+  updateSourceUI();
+  rebuild({preserveCamera:true});
+});
+
+for (const id of ["sampleCount","ruleMode","minSteps","minRelative","minUnique"]) {
+  $(id).addEventListener("input", updateLabels);
+  $(id).addEventListener("change", () => rebuild({preserveCamera:true}));
+}
+
+function updateRuleDescription() {
+  const rule = $("ruleMode").value;
+  $("formula").innerHTML =
+    rule === "drift"
+      ? `Syracuse drift:<br><code>yaw = parity</code><br><code>pitch ∝ log₂(3) − v₂(3n+1)</code> on odd nodes.<br><br>One 3D kick represents one complete odd→odd block. This is the rule that produced the conspicuous two-region split.`
+      : rule === "word"
+      ? `Syracuse word (k₁,k₂):<br><code>k₁=v₂(3n+1)</code> controls pitch; <code>k₂</code> of the next odd Syracuse value controls roll.<br><br>Repeated two-symbol exponent words therefore acquire similar local 3D geometry.`
+      : rule === "mod8"
+      ? `2-adic mod-8 classes:<br><code>n≡3,7 → k=1</code><br><code>n≡1 → k=2</code><br><code>n≡5 → k≥3</code><br><br>The three exact 2-adic families are deliberately separated into three pitch classes.`
+      : rule === "inv3"
+      ? `3-adic inverse branching:<br>after each odd Syracuse step, take the next odd value modulo <code>3⁶=729</code>.<br><br>Pitch encodes the log deviation of its depth-5 pruned inverse-tree leaf count from the mean <code>(4/3)⁵</code>. Up = richer inverse branching; down = poorer.`
+      : rule === "hybrid23"
+      ? `2×3-adic hybrid:<br><code>pitch = 2-adic mod-8 family</code><br><code>roll = 3-adic inverse-tree deviation</code><br><br>The two transverse degrees of freedom now carry two different arithmetic structures rather than an arbitrary XYZ cycle.`
+      : rule === "xyz"
+      ? `Cyclic X/Y/Z:<br>the parity angle is applied around <code>Z,Y,X,Z,Y,X,…</code> by path depth.<br><br>The third dimension is intentionally geometric; the axis cycle is not itself a Collatz invariant.`
+      : rule === "flat"
+      ? `Flat Wolfram-like:<br>only the parity-dependent turn is applied, always around one axis.`
+      : `Parity + v₂ pitch:<br><code>even → yaw +23.7°</code><br><code>odd → yaw −37.5°</code><br><code>pitch ∝ v₂ − 2</code><br><br>For odd n use <code>v₂(3n+1)</code>; for even n use <code>v₂(n)</code>.`;
+}
+$("ruleMode").addEventListener("change", updateRuleDescription);
+
+$("opacity").addEventListener("input", () => {
+  updateLabels();
+  lineMaterial.opacity = Number($("opacity").value);
+});
+$("pointSize").addEventListener("input", () => {
+  updateLabels();
+  pointMaterial.size = Number($("pointSize").value);
+  if (pointObject) pointObject.visible = $("sparks").checked && pointMaterial.size > 0;
+});
+
+$("autorotate").addEventListener("change", e => {
+  controls.autoRotate = e.target.checked;
+  if (e.target.checked) viewFrozen = false;
+});
+$("sparks").addEventListener("change", e => {
+  if (pointObject) pointObject.visible = e.target.checked && pointMaterial.size > 0;
+});
+$("fog").addEventListener("change", updateFog);
+$("fogStrength").addEventListener("input", () => {
+  updateLabels();
+  updateFog();
+});
+$("reset").addEventListener("click", fitCamera);
+
+$("shot").addEventListener("click", () => {
+  renderScene();
+  const a = document.createElement("a");
+  a.download = "collatz-anglepath3d.png";
+  a.href = renderer.domElement.toDataURL("image/png");
+  a.click();
+});
+
+window.addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+let lastFps = performance.now();
+let frames = 0;
+const clock = new THREE.Clock();
+
+function animate() {
+  const dt = Math.min(clock.getDelta(), 0.1);
+  if (!viewFrozen) controls.update(dt);
+  renderScene();
+
+  frames++;
+  const now = performance.now();
+  if (now - lastFps >= 600) {
+    $("fps").textContent = Math.round(frames * 1000 / (now - lastFps));
+    frames = 0;
+    lastFps = now;
+  }
+}
+renderer.setAnimationLoop(animate);
+
+initializeSavedViews();
+updateLabels();
+updateSourceUI();
+
+try {
+  if ($("sourceMode").value === "dataset" && !loadedDataset) {
+    statusEl.textContent = "Trying to load default jointHist.csv…";
+    const autoLoaded = await tryAutoLoadDefaultDataset();
+
+    if (autoLoaded) {
+      await rebuild();
+    } else {
+      updateSourceUI();
+      statusEl.classList.remove("error");
+      statusEl.textContent =
+        "Default is jointHist.csv with N=1. Click “Load CSV…” if the browser did not allow automatic local-file access.";
+    }
+  } else {
+    await rebuild();
+  }
+} catch (err) {
+  console.error(err);
+  statusEl.classList.add("error");
+  statusEl.textContent = "Build failed: " + (err?.message || err);
+}
+</script>
+</body>
+</html>

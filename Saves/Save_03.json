@@ -1,0 +1,81 @@
+{
+  "format": "collatz-anglepath-views",
+  "version": 1,
+  "views": [
+    {
+      "id": "view-d07dcd57-3172-4c78-b772-324b605c6fc1",
+      "name": "2026-10-20 19:33:11.753 · 605c6fc1",
+      "createdAt": "2026-10-20T17:33:11.753Z",
+      "settings": {
+        "sampleCount": "2000",
+        "minSteps": "0",
+        "minRelative": "0",
+        "minUnique": "0",
+        "ruleMode": "drift",
+        "evenAngle": "23.7",
+        "oddAngle": "37.5",
+        "pitchAngle": "7",
+        "falloff": "0.05",
+        "opacity": "0.015",
+        "pointSize": "1.2",
+        "fogStrength": "1.05",
+        "autorotate": false,
+        "fog": true,
+        "bloom": true,
+        "sparks": false,
+        "colorMode": "subtree",
+        "subtreeN": "40",
+        "tintStrength": "0.7",
+        "trafficLength": "0"
+      },
+      "camera": {
+        "position": [
+          -201.63170087672333,
+          -218.02359438592106,
+          -413.27365849375224
+        ],
+        "quaternion": [
+          -0.052710860313759794,
+          0.945256077738484,
+          -0.19361208034760402,
+          -0.25734582772392744
+        ],
+        "up": [
+          0,
+          1,
+          0
+        ],
+        "fov": 48,
+        "near": 0.07764853093938344,
+        "far": 6211.882475150675,
+        "zoom": 1,
+        "focus": 10,
+        "aspect": 2.0557851239669422,
+        "filmGauge": 35,
+        "filmOffset": 0
+      },
+      "orbit": {
+        "target": [
+          82.08611169876886,
+          21.29036464351765,
+          69.16673764815937
+        ],
+        "minDistance": 22.55893058146588,
+        "maxDistance": 3947.8128517565287,
+        "autoRotateSpeed": 0.42,
+        "dampingFactor": 0.055,
+        "enableDamping": true,
+        "zoomToCursor": true
+      },
+      "renderer": {
+        "exposure": 1.25,
+        "toneMapping": 4,
+        "pixelRatio": 1.6
+      },
+      "viewport": {
+        "width": 1990,
+        "height": 968
+      }
+    }
+  ]
+}
